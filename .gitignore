@@ -4,3 +4,5 @@ third_party
 .vs
 **/*.vcxproj
 **/*.vcxproj.*
+_build_
+*.sln
