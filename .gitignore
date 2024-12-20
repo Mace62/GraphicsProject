@@ -1,4 +1,6 @@
-assets
 support
 third_party
 .git
+.vs
+**/*.vcxproj
+**/*.vcxproj.*
