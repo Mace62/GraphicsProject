@@ -325,14 +325,18 @@ TEST_CASE( "4x4 matrix by vector multiplication", "[mat44][vec4]" )
 
     SECTION("Perspective projection matrix multiplication")
     {
-        Mat44f perspective = make_perspective_projection(std::numbers::pi_v<float> / 4.f, 1.33f, 0.1f, 100.f);
+        auto const proj = make_perspective_projection(
+            60.f * std::numbers::pi_v<float> / 180.f,
+            1280 / float(720),
+            0.1f, 100.f
+        );
+
         Vec4f v = { 1.f, 1.f, 1.f, 1.f };
-        Vec4f result = perspective * v;
+        Vec4f result = proj * v;
 
-        REQUIRE(result.x != v.x);
-        REQUIRE(result.y != v.y);
-        REQUIRE(result.z != v.z);
+        REQUIRE_THAT(result.x, WithinAbs(0.974279f, kEps_));
+        REQUIRE_THAT(result.y, WithinAbs(1.732051f, kEps_));
+        REQUIRE_THAT(result.z, WithinAbs(-1.202202f, kEps_));
+        REQUIRE_THAT(result.w, WithinAbs(-1.f, kEps_));
     }
-
-
 }
