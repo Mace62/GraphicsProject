@@ -1,5 +1,7 @@
 .git
 .vs
+bin
+lib
 **/*.vcxproj
 **/*.vcxproj.*
 _build_
