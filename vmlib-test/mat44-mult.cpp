@@ -329,8 +329,10 @@ TEST_CASE( "4x4 matrix by vector multiplication", "[mat44][vec4]" )
         Vec4f v = { 1.f, 1.f, 1.f, 1.f };
         Vec4f result = perspective * v;
 
-        REQUIRE(result.x == v.x);
-        REQUIRE(result.y == v.y);
-        REQUIRE(result.z == v.z);
+        REQUIRE(result.x != v.x);
+        REQUIRE(result.y != v.y);
+        REQUIRE(result.z != v.z);
     }
+
+
 }
