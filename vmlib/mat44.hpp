@@ -182,4 +182,28 @@ Mat44f make_perspective_projection(float aFovInRadians, float aAspect, float aNe
 	return mat;
 }
 
+// Specialised Mat44 func to generate co-ordinate system for camera
+inline
+Mat44f make_look_at(Vec4f const& eye, Vec4f const& target, Vec4f const& up)
+{
+	// Calculate camera coordinate system vectors
+	Vec4f forward = normalize(target - eye);  // Z axis
+	Vec4f right = normalize(cross(forward, up));  // X axis
+	Vec4f true_up = cross(right, forward);  // Y axis
+
+	// Create rotation matrix (world space to camera space)
+	Mat44f rotation = {
+		right.x,   right.y,   right.z,   0.0f,
+		true_up.x, true_up.y, true_up.z, 0.0f,
+		-forward.x,-forward.y,-forward.z, 0.0f,
+		0.0f,      0.0f,      0.0f,      1.0f
+	};
+
+	// Create translation matrix (move scene so camera is at origin)
+	Mat44f translation = make_translation({ -eye.x, -eye.y, -eye.z });
+
+	// Final view matrix combines both transforms
+	return rotation * translation;
+}
+
 #endif // MAT44_HPP_E7187A26_469E_48AD_A3D2_63150F05A4CA
