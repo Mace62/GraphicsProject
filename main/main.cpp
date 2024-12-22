@@ -25,6 +25,15 @@
 #include "loadobj.hpp"
 
 
+#if defined(_WIN32) // alternative: ”#if defined(_MSC_VER)”
+extern "C"
+{
+	__declspec(dllexport) unsigned long NvOptimusEnablement = 1;
+	__declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1; // untested
+	// See https://stackoverflow.com/questions/17458803/amd-equivalent-to-nvoptimusenablement
+}
+#endif
+
 // Define all asset paths here
 const std::string DIR_PATH = std::filesystem::current_path().string();
 const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj";
