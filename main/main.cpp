@@ -30,7 +30,6 @@ extern "C"
 {
 	__declspec(dllexport) unsigned long NvOptimusEnablement = 1;
 	__declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1; // untested
-	// See https://stackoverflow.com/questions/17458803/amd-equivalent-to-nvoptimusenablement
 }
 #endif
 

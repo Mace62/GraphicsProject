@@ -1,5 +1,7 @@
 .git
 .vs
+bin/**
+lib/**
 bin
 lib
 **/*.vcxproj
