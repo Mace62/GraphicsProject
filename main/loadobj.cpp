@@ -29,7 +29,7 @@ SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
             auto const& idx = shape.mesh.indices[i];
 
             // Add vertex position
-            ret.positions.emplace_back(Vec3f{
+            ret.positions.emplace_back(mat44_to_mat33(aPreTransform) * Vec3f{
                 result.attributes.positions[idx.position_index * 3 + 0],
                 result.attributes.positions[idx.position_index * 3 + 1],
                 result.attributes.positions[idx.position_index * 3 + 2]
@@ -38,15 +38,15 @@ SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
             // Add normal if present
             if (idx.normal_index >= 0) {
                 // Use normal from OBJ file
-                ret.normals.emplace_back(normalize(N * Vec3f{
+                ret.normals.emplace_back(N * Vec3f{
                     result.attributes.normals[idx.normal_index * 3 + 0],
                     result.attributes.normals[idx.normal_index * 3 + 1],
                     result.attributes.normals[idx.normal_index * 3 + 2]
-                    }));
+                    });
             }
            
 
-            //// Add texture coordinates if present
+            // Add texture coordinates if present
             //if (idx.texcoord_index >= 0) {
             //    ret.texcoords.emplace_back(Vec2f{
             //        result.attributes.texcoords[idx.texcoord_index * 2 + 0],
@@ -66,7 +66,7 @@ SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
                 mat.ambient[0],
                 mat.ambient[1],
                 mat.ambient[2]
-                });
+            });
         }
     }
 

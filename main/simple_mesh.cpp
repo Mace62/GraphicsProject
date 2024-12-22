@@ -1,10 +1,10 @@
 #include "simple_mesh.hpp"
 
-SimpleMeshData concatenate(SimpleMeshData aM, SimpleMeshData const& aN)
+SimpleMeshData concatenate( SimpleMeshData aM, SimpleMeshData const& aN )
 {
-	aM.positions.insert(aM.positions.end(), aN.positions.begin(), aN.positions.end());
-	aM.colors.insert(aM.colors.end(), aN.colors.begin(), aN.colors.end());
-	aM.normals.insert(aM.normals.end(), aN.normals.begin(), aN.normals.end());
+	aM.positions.insert( aM.positions.end(), aN.positions.begin(), aN.positions.end() );
+	aM.colors.insert( aM.colors.end(), aN.colors.begin(), aN.colors.end() );
+	aM.normals.insert( aM.normals.end(), aN.normals.begin(), aN.normals.end() );
 	return aM;
 }
 
@@ -25,6 +25,11 @@ GLuint create_vao(SimpleMeshData const& aMeshData)
 	glGenBuffers(1, &normalVBO);
 	glBindBuffer(GL_ARRAY_BUFFER, normalVBO);
 	glBufferData(GL_ARRAY_BUFFER, aMeshData.normals.size() * sizeof(Vec3f), aMeshData.normals.data(), GL_STATIC_DRAW);
+
+	GLuint textureVBO = 3;
+	glGenBuffers(1, &textureVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, textureVBO);
+	glBufferData(GL_ARRAY_BUFFER, aMeshData.texcoords.size() * sizeof(Vec2f), aMeshData.texcoords.data(), GL_STATIC_DRAW);
 
 	// Create VAO's for pos and colours
 	GLuint vao = 0;
@@ -59,6 +64,16 @@ GLuint create_vao(SimpleMeshData const& aMeshData)
 	);
 
 	glEnableVertexAttribArray(2);
+
+	//glBindBuffer(GL_ARRAY_BUFFER, textureVBO);
+	//glVertexAttribPointer(
+	//	2, // location = 1 in vertex shader
+	//	3, GL_FLOAT, GL_FALSE, // 3 floats, not normalized to [0..1] (GL FALSE)
+	//	0,	// 0 for same reasons as above 
+	//	0
+	//);
+
+	//glEnableVertexAttribArray(3);
 
 
 	// Reset state

@@ -55,7 +55,7 @@ namespace
 			bool movingDown = false;
 
 			// Add vectors for camera orientation
-			Vec4f position = { 0.0f, 0.0f, 5.0f, 1.0f };
+			Vec4f position = { 0.0f, 5.0f, 0.0f, 1.0f };
 			Vec4f forward = { 0.0f, 0.0f, -1.0f, 0.0f };
 			Vec4f right = { 1.0f, 0.0f, 0.0f, 0.0f };
 			Vec4f up = { 0.0f, 1.0f, 0.0f, 0.0f };
@@ -220,7 +220,7 @@ int main() try
 	OGL_CHECKPOINT_ALWAYS();
 	
 	// Load Langerso mesh
-	auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str(), make_translation({ 0.f, -10.f, 0.f }));
+	auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str());
 	GLuint langersoVao = create_vao(langersoMesh);
 	std::size_t langersoVertexCount = langersoMesh.positions.size();
 
@@ -325,7 +325,7 @@ int main() try
 		Vec3f lightDir = normalize(Vec3f{ 0.f, 1.f, -1.f });
 
 		glUniform3fv(2, 1, &lightDir.x); // Apply light dir vec
-		glUniform3f(3, 0.678f, 0.847f, 0.902f);	// Apply diffuse vec
+		glUniform3f(3, 0.678f, 0.847f, 0.902f);	// Apply diffuse vec (light blue tint)
 		glUniform3f(4, 0.05f, 0.05f, 0.05f);	// Apply scene ambience vec
 
 		// Draw scene
