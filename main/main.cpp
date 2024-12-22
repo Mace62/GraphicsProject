@@ -19,6 +19,7 @@
 
 #include "../vmlib/vec4.hpp"
 #include "../vmlib/mat44.hpp"
+#include "../vmlib/mat33.hpp"
 
 #include "defaults.hpp"
 #include "loadobj.hpp"
@@ -219,7 +220,7 @@ int main() try
 	OGL_CHECKPOINT_ALWAYS();
 	
 	// Load Langerso mesh
-	auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str());
+	auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str(), make_translation({ 0.f, -10.f, 0.f }));
 	GLuint langersoVao = create_vao(langersoMesh);
 	std::size_t langersoVertexCount = langersoMesh.positions.size();
 
@@ -274,7 +275,7 @@ int main() try
 		if (state.camControl.radius <= 0.1f)
 			state.camControl.radius = 0.1f;
 
-		// Keep the projection matrix setup
+		// Projection matrix setup
 		Mat44f projection = make_perspective_projection(
 			60.f * std::numbers::pi_v<float> / 180.f,  // FOV: 60 degrees
 			fbwidth / float(fbheight),                 // Aspect ratio
@@ -284,14 +285,19 @@ int main() try
 		// Update camera position with new FPS camera system
 		updateCamera(state.camControl, dt);
 
-		// Calculate new view matrix using look_at
-		Mat44f viewMatrix = make_look_at(
+		// Calculate new view matrix using look_at func
+		Mat44f world2camera = make_look_at(
 			state.camControl.position,
 			state.camControl.position + state.camControl.forward,
 			state.camControl.up
 		);
 
-		Mat44f projCameraWorldLangerso = projection * viewMatrix;
+		// Map model to world
+		Mat44f model2world = kIdentity44f;
+
+		Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
+
+		Mat44f projCameraWorldLangerso = projection * world2camera * model2world;
 
 
 		// Draw scene
@@ -302,6 +308,25 @@ int main() try
 
 		// We want to draw with our program.
 		glUseProgram(prog.programId());
+
+		// Parse Normalisation matrix to vertex shader
+		glUniformMatrix3fv(
+			1, // make sure this matches the location = N in the vertex shader!
+			1, GL_TRUE, normalMatrix.v
+		);
+
+		// Parse Normalisation matrix to vertex shader
+		glUniformMatrix3fv(
+			1, // make sure this matches the location = N in the vertex shader!
+			1, GL_TRUE, normalMatrix.v
+		);
+
+		// Task 2 general light dir requirement (needs to be applied to ALL objects)
+		Vec3f lightDir = normalize(Vec3f{ 0.f, 1.f, -1.f });
+
+		glUniform3fv(2, 1, &lightDir.x); // Apply light dir vec
+		glUniform3f(3, 0.678f, 0.847f, 0.902f);	// Apply diffuse vec
+		glUniform3f(4, 0.05f, 0.05f, 0.05f);	// Apply scene ambience vec
 
 		// Draw scene
 		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
@@ -448,7 +473,7 @@ namespace
 			state->camControl.lastTheta = state->camControl.theta;
 		}
 	}
-	void mouse_button_callback(GLFWwindow* aWindow, int button, int action, int mods)
+	void mouse_button_callback(GLFWwindow* aWindow, int button, int action, int /*mods*/)
 	{
 		if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow)))
 		{
@@ -473,8 +498,9 @@ namespace
 			0.0f
 		};
 
-		std::cout << "phi: " << camera.phi << "		sin(phi) = " << sin(camera.phi) << "		cos(phi) = " << cos(camera.phi) << std::endl;
-		std::cout << "theta: " << camera.theta << "		sin(theta) = " << sin(camera.theta) << "		cos(theta) = " << cos(camera.theta) << "\n" << std::endl;
+		// Debugger statements
+		//std::cout << "phi: " << camera.phi << "		sin(phi) = " << sin(camera.phi) << "		cos(phi) = " << cos(camera.phi) << std::endl;
+		//std::cout << "theta: " << camera.theta << "		sin(theta) = " << sin(camera.theta) << "		cos(theta) = " << cos(camera.theta) << "\n" << std::endl;
 
 		// Calculate right vector by crossing forward with world up
 		camera.right = cross(camera.forward, Vec4f{ 0.0f, 1.0f, 0.0f, 0.0f });

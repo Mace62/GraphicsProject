@@ -37,7 +37,7 @@ void main()
 	float nDotL = max( 0.0, dot( normal, uLightDir ) );
 	oColor = (uSceneAmbient + nDotL * uLightDiffuse) * v2fColor;
 
-	oColor = texture( uTexture, v2fTexCoord ).rgb;		// For texturing only
+	// oColor = texture( uTexture, v2fTexCoord ).rgb;		// For texturing only
 
 
 	// oColor = normal;		// Use this as a debug method to visualise normals as colours 

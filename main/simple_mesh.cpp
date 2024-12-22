@@ -1,14 +1,15 @@
 #include "simple_mesh.hpp"
 
-SimpleMeshData concatenate( SimpleMeshData aM, SimpleMeshData const& aN )
+SimpleMeshData concatenate(SimpleMeshData aM, SimpleMeshData const& aN)
 {
-	aM.positions.insert( aM.positions.end(), aN.positions.begin(), aN.positions.end() );
-	aM.colors.insert( aM.colors.end(), aN.colors.begin(), aN.colors.end() );
+	aM.positions.insert(aM.positions.end(), aN.positions.begin(), aN.positions.end());
+	aM.colors.insert(aM.colors.end(), aN.colors.begin(), aN.colors.end());
+	aM.normals.insert(aM.normals.end(), aN.normals.begin(), aN.normals.end());
 	return aM;
 }
 
 
-GLuint create_vao( SimpleMeshData const& aMeshData )
+GLuint create_vao(SimpleMeshData const& aMeshData)
 {
 	GLuint positionVBO = 0;
 	glGenBuffers(1, &positionVBO);
@@ -19,6 +20,11 @@ GLuint create_vao( SimpleMeshData const& aMeshData )
 	glGenBuffers(1, &colorVBO);
 	glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
 	glBufferData(GL_ARRAY_BUFFER, aMeshData.colors.size() * sizeof(Vec3f), aMeshData.colors.data(), GL_STATIC_DRAW);
+
+	GLuint normalVBO = 2;
+	glGenBuffers(1, &normalVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, normalVBO);
+	glBufferData(GL_ARRAY_BUFFER, aMeshData.normals.size() * sizeof(Vec3f), aMeshData.normals.data(), GL_STATIC_DRAW);
 
 	// Create VAO's for pos and colours
 	GLuint vao = 0;
@@ -44,6 +50,17 @@ GLuint create_vao( SimpleMeshData const& aMeshData )
 
 	glEnableVertexAttribArray(1);
 
+	glBindBuffer(GL_ARRAY_BUFFER, normalVBO);
+	glVertexAttribPointer(
+		2, // location = 1 in vertex shader
+		3, GL_FLOAT, GL_FALSE, // 3 floats, not normalized to [0..1] (GL FALSE)
+		0,	// 0 for same reasons as above 
+		0
+	);
+
+	glEnableVertexAttribArray(2);
+
+
 	// Reset state
 	// Bind an invalid buffer obj and invalid VAO as currect state
 	glBindVertexArray(0);
@@ -53,7 +70,9 @@ GLuint create_vao( SimpleMeshData const& aMeshData )
 	// Note: these are not deleted fully, as the VAO holds a reference to them.
 	glDeleteBuffers(1, &colorVBO);
 	glDeleteBuffers(1, &positionVBO);
+	glDeleteBuffers(1, &normalVBO);
 
 	return vao;
 }
+
 
