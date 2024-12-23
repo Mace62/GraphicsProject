@@ -137,13 +137,46 @@ float dot( Vec4f aLeft, Vec4f aRight ) noexcept
 	;
 }
 
+inline Vec4f cross(Vec4f const& a, Vec4f const& b)
+{
+	// Cross product formula:
+	// x = a.y * b.z - a.z * b.y
+	// y = a.z * b.x - a.x * b.z
+	// z = a.x * b.y - a.y * b.x
+	return Vec4f{
+		a.y * b.z - a.z * b.y,  // x component
+		a.z * b.x - a.x * b.z,  // y component
+		a.x * b.y - a.y * b.x,  // z component
+		0.0f                     // w component is 0 for vectors
+	};
+}
+
 inline
-float length( Vec4f aVec ) noexcept
+float length(Vec4f aVec) noexcept
 {
 	// The standard function std::sqrt() is not marked as constexpr. length()
 	// calls std::sqrt() unconditionally, so length() cannot be marked
 	// constexpr itself.
-	return std::sqrt( dot( aVec, aVec ) );
+	return std::sqrt(dot(aVec, aVec));
+}
+
+inline Vec4f normalize(Vec4f v)
+{
+	// Calculate the length (magnitude) of the vector using Pythagorean theorem
+	float vec_length = length(v);
+
+	// Avoid division by zero
+	if (vec_length < 1e-6f) {  // Small epsilon value for floating point comparison
+		return v;          // Return original vector if it's too close to zero
+	}
+
+	// Scale each component by 1/length to normalize
+	return Vec4f{
+		v.x / vec_length,
+		v.y / vec_length,
+		v.z / vec_length,
+		v.w            // w component typically stays the same (0 for vectors, 1 for points)
+	};
 }
 
 
