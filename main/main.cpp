@@ -52,7 +52,7 @@ namespace
 		struct CamCtrl_
 		{
 			float FAST_SPEED_MULT = 4.f;
-			float SLOW_SPEED_MULT = 0.25f;
+			float SLOW_SPEED_MULT = 0.1f;
 			float NORMAL_SPEED_MULT = 1.f;
 
 			bool movingForward = false;
@@ -399,16 +399,17 @@ namespace
 				}
 			}
 
-			// Space toggles camera
-			if (GLFW_KEY_SPACE == aKey && GLFW_PRESS == aAction)
-			{
-				state->camControl.cameraActive = !state->camControl.cameraActive;
+			// Changed to right click toggles camera
+			//// Space toggles camera
+			//if (GLFW_KEY_SPACE == aKey && GLFW_PRESS == aAction)
+			//{
+			//	state->camControl.cameraActive = !state->camControl.cameraActive;
 
-				if (state->camControl.cameraActive)
-					glfwSetInputMode(aWindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-				else
-					glfwSetInputMode(aWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-			}
+			//	if (state->camControl.cameraActive)
+			//		glfwSetInputMode(aWindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+			//	else
+			//		glfwSetInputMode(aWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			//}
 
 			// Handle WASD keys
 			if (GLFW_KEY_W == aKey)
@@ -488,6 +489,11 @@ namespace
 			if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 			{
 				state->camControl.cameraActive = !state->camControl.cameraActive;
+
+				if (state->camControl.cameraActive)
+					glfwSetInputMode(aWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Cursor disabled - hidden and locked to the centre of the screen
+				else
+					glfwSetInputMode(aWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 			}
 		}
 	}
