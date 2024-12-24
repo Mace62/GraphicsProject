@@ -23,9 +23,10 @@
 
 #include "defaults.hpp"
 #include "loadobj.hpp"
+#include "texture.hpp"
 
 
-#if defined(_WIN32) // alternative: ”#if defined(_MSC_VER)”
+#if defined(_WIN32) // alternative: #if defined(_MSC_VER)
 extern "C"
 {
 	__declspec(dllexport) unsigned long NvOptimusEnablement = 1;
@@ -35,7 +36,10 @@ extern "C"
 
 // Define all asset paths here
 const std::string DIR_PATH = std::filesystem::current_path().string();
+
 const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj";
+const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
+
 
 
 namespace
@@ -230,6 +234,7 @@ int main() try
 	// Load Langerso mesh
 	auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str());
 	GLuint langersoVao = create_vao(langersoMesh);
+	GLuint langersoTextureObjectId = load_texture_2d(LANGERSO_TEXTURE_ASSET_PATH.c_str());
 	std::size_t langersoVertexCount = langersoMesh.positions.size();
 
 	OGL_CHECKPOINT_ALWAYS();
@@ -335,6 +340,14 @@ int main() try
 		glUniform3fv(2, 1, &lightDir.x); // Apply light dir vec
 		glUniform3f(3, 0.678f, 0.847f, 0.902f);	// Apply diffuse vec (light blue tint)
 		glUniform3f(4, 0.05f, 0.05f, 0.05f);	// Apply scene ambience vec
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, langersoTextureObjectId);
+		glUniform1i(5, 1);
+
+		// Give min and dims of the mesh to align tex coords with mesh 
+		glUniform2f(6, langersoMesh.mins.x, langersoMesh.mins.y);
+		glUniform2f(7, langersoMesh.diffs.x, langersoMesh.diffs.y);
 
 		// Draw scene
 		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
