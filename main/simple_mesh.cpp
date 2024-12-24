@@ -5,6 +5,7 @@ SimpleMeshData concatenate( SimpleMeshData aM, SimpleMeshData const& aN )
 	aM.positions.insert( aM.positions.end(), aN.positions.begin(), aN.positions.end() );
 	aM.colors.insert( aM.colors.end(), aN.colors.begin(), aN.colors.end() );
 	aM.normals.insert( aM.normals.end(), aN.normals.begin(), aN.normals.end() );
+	aM.texcoords.insert(aM.texcoords.end(), aN.texcoords.begin(), aN.texcoords.end());
 	return aM;
 }
 
@@ -57,7 +58,7 @@ GLuint create_vao(SimpleMeshData const& aMeshData)
 
 	glBindBuffer(GL_ARRAY_BUFFER, normalVBO);
 	glVertexAttribPointer(
-		2, // location = 1 in vertex shader
+		2, // location = 2 in vertex shader
 		3, GL_FLOAT, GL_FALSE, // 3 floats, not normalized to [0..1] (GL FALSE)
 		0,	// 0 for same reasons as above 
 		0
@@ -65,15 +66,15 @@ GLuint create_vao(SimpleMeshData const& aMeshData)
 
 	glEnableVertexAttribArray(2);
 
-	//glBindBuffer(GL_ARRAY_BUFFER, textureVBO);
-	//glVertexAttribPointer(
-	//	2, // location = 1 in vertex shader
-	//	3, GL_FLOAT, GL_FALSE, // 3 floats, not normalized to [0..1] (GL FALSE)
-	//	0,	// 0 for same reasons as above 
-	//	0
-	//);
+	glBindBuffer(GL_ARRAY_BUFFER, textureVBO);
+	glVertexAttribPointer(
+		3, // location = 1 in vertex shader
+		3, GL_FLOAT, GL_FALSE, // 3 floats, not normalized to [0..1] (GL FALSE)
+		0,	// 0 for same reasons as above 
+		0
+	);
 
-	//glEnableVertexAttribArray(3);
+	glEnableVertexAttribArray(3);
 
 
 	// Reset state
