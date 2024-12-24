@@ -91,9 +91,10 @@ namespace
 	void createSpaceVehicle(
 		std::vector<float>& vertices,
 		std::vector<unsigned int>& indices,
+		float rocketScale = 0.5f,
 		float offsetX = 0.0f,
 		float offsetY = 1.0f,
-		float offsetZ = 0.0f
+		float offsetZ = 0.0f		
 	);
 
 	struct GLFWCleanupHelper
@@ -279,7 +280,7 @@ int main() try
 
 		std::vector<float> vertices;
 		std::vector<unsigned int> indices;
-		createSpaceVehicle(vertices, indices);
+		createSpaceVehicle(vertices, indices, 0.1f);
 		spaceshipIndexCount = indices.size();
 
 		// Generate VAO
@@ -1019,13 +1020,14 @@ namespace
 	void createSpaceVehicle(
 		std::vector<float>& vertices,
 		std::vector<unsigned int>& indices,
+		float rocketScale,
 		float offsetX,
 		float offsetY,
 		float offsetZ
 	)
 	{
 		// REMEMBER STARTING VERTEX COUNT
-		size_t startVertexCount = vertices.size(); 
+		size_t startVertexCount = vertices.size();
 
 		// GENERATE ROCKET BODY (CYLINDER)
 		{
@@ -1062,10 +1064,10 @@ namespace
 			std::vector<unsigned int> boosterCubeIndices;
 			generateCube(boosterCubeVerts, boosterCubeIndices);
 
-			float boosterSize = 0.05f;   // scale for the booster cubes
-			float boosterOffset = 0.1f;  // distance from rocket center
+			float boosterSize = 0.2f;
+			float boosterOffset = 0.0f;
 
-			auto addBooster = [&](float angleRadians)
+			auto addOneBigBooster = [&](float angleRadians)
 			{
 				unsigned int startVertCountLocal = static_cast<unsigned int>(vertices.size() / 8);
 
@@ -1075,12 +1077,12 @@ namespace
 					float y = boosterCubeVerts[i + 1];
 					float z = boosterCubeVerts[i + 2];
 
-					// Scale
+					// Scale in X/Z by boosterSize, maybe keep Y even taller
 					x *= boosterSize;
-					y *= boosterSize*2.f;
+					y *= boosterSize * 0.2f;
 					z *= boosterSize;
 
-					// Position around the rocket in a ring
+					// If you want it offset from the rocket center, add boosterOffset * cos/sin
 					float px = boosterOffset * std::cos(angleRadians);
 					float pz = boosterOffset * std::sin(angleRadians);
 					x += px;
@@ -1091,7 +1093,7 @@ namespace
 					vertices.push_back(y);
 					vertices.push_back(z);
 
-					// Normals & UV from the original unit-cube
+					// Copy normals & UV from the original unit cube
 					vertices.push_back(boosterCubeVerts[i + 3]);
 					vertices.push_back(boosterCubeVerts[i + 4]);
 					vertices.push_back(boosterCubeVerts[i + 5]);
@@ -1105,12 +1107,10 @@ namespace
 				}
 			};
 
-			// Create 4 boosters around the rocket (every 90 degrees)
-			for (int i = 0; i < 4; ++i) {
-				float angle = float(i) * (2.0f * float(M_PI) / 4.0f);
-				addBooster(angle);
-			}
+			// Create one single booster (angle = 0.0f).
+			addOneBigBooster(0.0f);
 		}
+
 
 		// ADD PRIMARY TRIANGULAR FINS (4 OF THEM)
 		{
@@ -1193,7 +1193,7 @@ namespace
 					float z = triVerts[i + 2];
 
 					// Move them a bit higher
-					y += baseY; 
+					y += baseY;
 
 					// Rotate around Y
 					float xRot = x * cosf(angleRadians) - z * sinf(angleRadians);
@@ -1235,12 +1235,20 @@ namespace
 			for (size_t v = startVertexCount / 8; v < newVertexCount; ++v)
 			{
 				size_t base = v * 8;
+
+				// If we want the rocket's bottom (y=0) to remain at the same place when scaling,
+				// just multiply positions by rocketScale, then apply offset.
+				vertices[base + 0] *= rocketScale;
+				vertices[base + 1] *= rocketScale;
+				vertices[base + 2] *= rocketScale;
+
 				vertices[base + 0] += offsetX;  // shift x
 				vertices[base + 1] += offsetY;  // shift y
 				vertices[base + 2] += offsetZ;  // shift z
 			}
 		}
 	}
+
 
 
 
