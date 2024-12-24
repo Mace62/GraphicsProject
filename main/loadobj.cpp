@@ -67,12 +67,6 @@ SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
 
                 // Save the texture coordinates
                 ret.texcoords.emplace_back(Vec2f{ texX, texZ });
-
-                //// Update the min and max values for x and z
-                //minX = std::min(minX, texX);
-                //maxX = std::max(maxX, texX);
-                //minZ = std::min(minZ, texZ);
-                //maxZ = std::max(maxZ, texZ);
             }
 
             // Get material for current face
@@ -96,19 +90,10 @@ SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
     std::cout << "maxz: " << maxZ << ", minZ: " << minZ << std::endl;
     std::cout << "diffX: " << diffX << ", diffZ: " << diffZ << std::endl;
 
-    // Set each texture coordinate to range [-1, 0]
-    for (auto& texCoord : ret.texcoords) 
-    {
-        // Output before values of x and z
-        //std::cout << "Before - x: " << texCoord.x << ", z: " << texCoord.y << std::endl;
+    // Save min and diffs for texturing recalculation to upper left corner
+    ret.mins = Vec2f{ minX, minZ };
+    ret.diffs = Vec2f{ diffX, diffZ };
 
-        // Normalize x and z values to the range [-1, 0]
-        texCoord.x = texCoord.x - 1.0f;
-        texCoord.y = texCoord.y - 1.0f;
-
-        // Output after values of x and z
-        //std::cout << "After - x: " << texCoord.x << ", z: " << texCoord.y << std::endl;
-    }
 
     std::cout << ret.positions.size() << std::endl;
     return ret;

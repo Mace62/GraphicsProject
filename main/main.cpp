@@ -26,7 +26,7 @@
 #include "texture.hpp"
 
 
-#if defined(_WIN32) // alternative: ”#if defined(_MSC_VER)”
+#if defined(_WIN32) // alternative: #if defined(_MSC_VER)
 extern "C"
 {
 	__declspec(dllexport) unsigned long NvOptimusEnablement = 1;
@@ -344,6 +344,10 @@ int main() try
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, langersoTextureObjectId);
 		glUniform1i(5, 1);
+
+		// Give min and dims of the mesh to align tex coords with mesh 
+		glUniform2f(6, langersoMesh.mins.x, langersoMesh.mins.y);
+		glUniform2f(7, langersoMesh.diffs.x, langersoMesh.diffs.y);
 
 		// Draw scene
 		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);

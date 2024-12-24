@@ -14,6 +14,9 @@ struct SimpleMeshData
 	std::vector<Vec3f> colors;
 	std::vector<Vec3f> normals;
 	std::vector<Vec2f> texcoords;
+	
+	Vec2f mins;
+	Vec2f diffs;
 };
 
 SimpleMeshData concatenate( SimpleMeshData, SimpleMeshData const& );
