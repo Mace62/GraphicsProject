@@ -51,27 +51,6 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism1);
 	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism2);
 
-
-	//// Loop through the original positions and apply matrix
-	//for (auto& pos : wingTriangleBasedPrism.positions) {
-	//	// Transform the position with the rotation matrix
-	//	Vec4f transformedPos = make_rotation_x(std::numbers::pi_v<float>) * Vec4f{ pos.x, pos.y, pos.z, 1.f };
-
-	//	// Replace the current position with the transformed position
-	//	pos = Vec3f{ transformedPos.x, transformedPos.y, transformedPos.z };
-	//}
-	
-
-
-
-	//// Create 4 rocket holder stands
-	//auto standTriangleBasedPrism = make_triangle_based_prism(true,
-	//	{ 1.0f, 0.f }, { 0.f, 0.f }, { -1.f, 1.f },
-	//	0.05f, aColorWings,
-	//	make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, 1.75f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
-	//);
-	//rocketData = concatenate(std::move(rocketData), standTriangleBasedPrism);
-
 	SimpleMeshData standTriangleBasedPrism;
 
 	// 4 stands created by 4 calls to func
