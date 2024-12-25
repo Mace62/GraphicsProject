@@ -47,6 +47,7 @@ const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj
 const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
 const std::string LAUNCHPAD_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/landingpad.obj";
 
+constexpr Vec3f rocketStartPos = { 2.f, 0.15f, -2.f };
 
 
 namespace
@@ -55,6 +56,8 @@ namespace
 	
 	constexpr float kMovementPerSecond_ = 5.f; // units per second
 	constexpr float kMouseSensitivity_ = 0.01f; // radians per pixel
+
+	constexpr float rocketAcceleration_ = 0.01f;
 
 	struct State_
 	{
@@ -89,6 +92,24 @@ namespace
 			float lastX, lastY;
 			float lastTheta;
 		} camControl;
+
+		struct rcktCtrl_ {
+			Vec3f position = rocketStartPos; // Starting position
+			Vec3f velocity = { 0.0f, 0.0f, 0.0f };   // Velocity starts at zero
+			float acceleration = rocketAcceleration_;                   // Acceleration factor
+			float time = 0.0f;                           // Time for curved path calculation
+			bool isMoving = false;                       // Movement state
+			float pitch = 0.f;       
+
+			void reset() {
+				position = rocketStartPos;
+				velocity = { 0.0f, 0.0f, 0.0f };
+				acceleration = rocketAcceleration_;
+				time = 0.0f;
+				isMoving = false;
+				pitch = 0.0f;
+			}
+		} rcktCtrl;
 	};
 
 	void glfw_callback_error_(int, char const*);
@@ -97,6 +118,7 @@ namespace
 	void glfw_callback_motion_(GLFWwindow*, double, double);
 	void mouse_button_callback(GLFWwindow* aWindow, int button, int action, int mods);
 	void updateCamera(State_::CamCtrl_& camera, float dt);
+	void updateRocket(State_::rcktCtrl_& rocket, float dt, Mat44f& model2worldRocket);
 
 	struct GLFWCleanupHelper
 	{
@@ -254,7 +276,7 @@ int main() try
 	// Load rocket mesh
     auto rocketMesh = create_spaceship(32,			// Subdivs
 		{0.2f, 0.2f, 0.2f}, {1.f, 0.2f, 0.2f},		// Colours for rocket body and fins
-		make_translation({ 2.f, 0.15f, -2.f }) * make_scaling(0.05f, 0.05f, 0.05f), 		// Pretransform matrix
+		make_scaling(0.05f, 0.05f, 0.05f), 		// Pretransform matrix
 		false
 	);
     GLuint rocketVao = create_vao(rocketMesh);
@@ -295,7 +317,6 @@ int main() try
 		auto const now = Clock::now();
 		float dt = std::chrono::duration_cast<Secondsf>(now - last).count();
 		last = now;
-
 
 		angle += dt * std::numbers::pi_v<float> *0.3f;
 		if (angle >= 2.f * std::numbers::pi_v<float>)
@@ -346,7 +367,19 @@ int main() try
 
 		// Map Rocket model to world
 		// TODO: CHANGE THIS WHEN CONSTRUCTING ANIMATION TO REFLECT UPDATED POS OF ROCKET
-		Mat44f model2worldRocket = kIdentity44f;
+		//Mat44f model2worldRocket = kIdentity44f;
+		//Mat44f rotationY = make_rotation_y(state.rcktCtrl.yaw);   // Yaw (around Y-axis)
+		//Mat44f rotationX = make_rotation_x(state.rcktCtrl.pitch); // Pitch (around X-axis)
+
+		//// Combine rotations: Apply pitch first, then yaw.
+		//Mat44f finalRotation = kIdentity44f; //= rotationY * rotationX;
+
+		/*Mat44f model2worldRocket = finalRotation * make_translation(state.rcktCtrl.position);*/
+
+		Mat44f model2worldRocket = kIdentity44f * make_translation(rocketStartPos);
+
+		updateRocket(state.rcktCtrl, dt, model2worldRocket);
+			
 		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(model2worldRocket)));
 		Mat44f projCameraWorldRocket = projection * world2camera * model2worldRocket;
 
@@ -429,7 +462,7 @@ int main() try
 			1, GL_TRUE, normalMatrixLaunchpad2.v
 		);
 
-		// Draw launchpad 1
+		// Draw launchpad 2
 		glUniform1i(5, launchpadMesh.isTextureSupplied);
 		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad2.v);
 		glBindVertexArray(launchpadVao);
@@ -476,11 +509,16 @@ namespace
 
 		if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow)))
 		{
+			// Start rocket animation with 'F'
+			if (GLFW_KEY_F == aKey && GLFW_PRESS == aAction) {
+				state->rcktCtrl.isMoving = true;
+			}
 			// R-key reloads shaders.
 			if (GLFW_KEY_R == aKey && GLFW_PRESS == aAction)
 			{
 				if (state->prog)
 				{
+					state->rcktCtrl.reset();
 					try
 					{
 						state->prog->reload();
@@ -625,6 +663,52 @@ namespace
 
 		// Update position
 		camera.position = camera.position + movement;
+	}
+
+	void updateRocket(State_::rcktCtrl_& rocket, float dt, Mat44f& model2worldRocket) {
+		if (rocket.isMoving) {
+			// Store previous position for direction calculation
+			Vec3f previousPosition = rocket.position;
+
+			rocket.time += dt;
+
+			// Update velocity with smaller acceleration
+			rocket.velocity.y += rocket.acceleration * rocket.time * 0.01;
+			if (rocket.time > 5) {
+				rocket.velocity.x += rocket.acceleration * (rocket.time-5) * 0.5;
+				rocket.velocity.z = -0.01f * dt;
+			}
+			
+
+			// Update position for curved path with smaller values
+			rocket.position.y += rocket.velocity.y * dt;   
+			rocket.position.x += rocket.velocity.x * 0.2 * dt;
+			rocket.position.z += rocket.velocity.z;
+			
+
+			// Calculate the direction of motion
+			Vec3f direction = {
+				rocket.position.x - previousPosition.x,
+				rocket.position.y - previousPosition.y,
+				rocket.position.z - previousPosition.z
+			};
+
+			// Normalize the direction vector to prevent errors when calculating the rotation
+			if (length(direction) > 0.001f) {
+				direction = normalize(direction);
+			}
+
+			rocket.pitch = atan2(direction.y, sqrt(direction.x * direction.x + direction.z * direction.z)) - M_PI/2;
+
+			Mat44f rotationMatrix = make_rotation_z(rocket.pitch);
+			model2worldRocket = make_translation(rocket.position) * rotationMatrix;
+
+			// Debug output for verification
+			printf("Rocket Time: %f\n", rocket.time);
+			printf("Position: (%f, %f, %f)\n", rocket.position.x, rocket.position.y, rocket.position.z);
+			printf("Velocity: (%f, %f, %f)\n", rocket.velocity.x, rocket.velocity.y, rocket.velocity.z);
+			printf("Rotation Angle (Pitch): %f radians\n", rocket.pitch);
+		}
 	}
 }
 
