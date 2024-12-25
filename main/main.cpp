@@ -56,6 +56,8 @@ namespace
 	constexpr float kMovementPerSecond_ = 5.f; // units per second
 	constexpr float kMouseSensitivity_ = 0.01f; // radians per pixel
 
+	constexpr float rocketAcceleration_ = 0.01f;
+
 	struct State_
 	{
 		ShaderProgram* prog;
@@ -89,6 +91,25 @@ namespace
 			float lastX, lastY;
 			float lastTheta;
 		} camControl;
+
+		struct rcktCtrl_ {
+			Vec3f position = { 0.f, 0.f, 0.f }; // Starting position
+			Vec3f velocity = { 0.0f, 0.0f, 0.0f };   // Velocity starts at zero
+			float acceleration = rocketAcceleration_;                   // Acceleration factor
+			float time = 0.0f;                           // Time for curved path calculation
+			bool isMoving = false;                       // Movement state
+			float rotationAngle = 0.0f;                  // Rotation angle for animation
+
+
+			void reset() {
+				position = { 0.f, 0.f, 0.f };
+				velocity = { 0.0f, 0.0f, 0.0f };
+				acceleration = rocketAcceleration_;
+				time = 0.0f;
+				isMoving = false;
+				rotationAngle = 0.0f;
+			}
+		} rcktCtrl;
 	};
 
 	void glfw_callback_error_(int, char const*);
@@ -97,6 +118,7 @@ namespace
 	void glfw_callback_motion_(GLFWwindow*, double, double);
 	void mouse_button_callback(GLFWwindow* aWindow, int button, int action, int mods);
 	void updateCamera(State_::CamCtrl_& camera, float dt);
+	void updateRocket(State_::rcktCtrl_& rocket, float dt);
 
 	struct GLFWCleanupHelper
 	{
@@ -296,6 +318,7 @@ int main() try
 		float dt = std::chrono::duration_cast<Secondsf>(now - last).count();
 		last = now;
 
+		updateRocket(state.rcktCtrl, dt);
 
 		angle += dt * std::numbers::pi_v<float> *0.3f;
 		if (angle >= 2.f * std::numbers::pi_v<float>)
@@ -346,7 +369,9 @@ int main() try
 
 		// Map Rocket model to world
 		// TODO: CHANGE THIS WHEN CONSTRUCTING ANIMATION TO REFLECT UPDATED POS OF ROCKET
-		Mat44f model2worldRocket = kIdentity44f;
+		//Mat44f model2worldRocket = kIdentity44f;
+		Mat44f model2worldRocket = make_translation(state.rcktCtrl.position);
+			
 		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(model2worldRocket)));
 		Mat44f projCameraWorldRocket = projection * world2camera * model2worldRocket;
 
@@ -476,11 +501,16 @@ namespace
 
 		if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow)))
 		{
+			// Start rocket animation with 'F'
+			if (GLFW_KEY_F == aKey && GLFW_PRESS == aAction) {
+				state->rcktCtrl.isMoving = true;
+			}
 			// R-key reloads shaders.
 			if (GLFW_KEY_R == aKey && GLFW_PRESS == aAction)
 			{
 				if (state->prog)
 				{
+					state->rcktCtrl.reset();
 					try
 					{
 						state->prog->reload();
@@ -625,6 +655,50 @@ namespace
 
 		// Update position
 		camera.position = camera.position + movement;
+	}
+
+	void updateRocket(State_::rcktCtrl_& rocket, float dt) {
+		if (rocket.isMoving) {
+			// Store previous position for direction calculation
+			Vec3f previousPosition = rocket.position;
+
+			rocket.time += dt;
+
+			// Update velocity with smaller acceleration
+			rocket.velocity.y += rocket.acceleration * rocket.time * 0.01;
+			if (rocket.time > 5) {
+				rocket.velocity.x += rocket.acceleration * (rocket.time-5) * 0.01;
+				rocket.velocity.z = -0.01f * dt;
+			}
+			
+
+			// Update position for curved path with smaller values
+			rocket.position.y += rocket.velocity.y * dt;   
+			rocket.position.x += rocket.velocity.x * 0.2 * dt;
+			rocket.position.z += rocket.velocity.z;
+			
+
+			// Calculate the direction of motion
+			Vec3f direction = {
+				rocket.position.x - previousPosition.x,
+				rocket.position.y - previousPosition.y,
+				rocket.position.z - previousPosition.z
+			};
+
+			// Normalize the direction vector to prevent errors when calculating the rotation
+			if (length(direction) > 0.001f) {
+				direction = normalize(direction);
+			}
+
+			// Update rotation angle to face the direction of motion
+			rocket.rotationAngle = atan2(direction.x, direction.z);  // Yaw rotation around the Y-axis
+
+			// Debug output for verification
+			printf("Rocket Time: %f\n", rocket.time);
+			printf("Position: (%f, %f, %f)\n", rocket.position.x, rocket.position.y, rocket.position.z);
+			printf("Velocity: (%f, %f, %f)\n", rocket.velocity.x, rocket.velocity.y, rocket.velocity.z);
+			printf("Rotation Angle (Yaw): %f radians\n", rocket.rotationAngle);
+		}
 	}
 }
 
