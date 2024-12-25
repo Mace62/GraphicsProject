@@ -45,6 +45,7 @@ const std::string DIR_PATH = std::filesystem::current_path().string();
 
 const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj";
 const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
+const std::string LAUNCHPAD_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/landingpad.obj";
 
 
 
@@ -243,6 +244,13 @@ int main() try
 	GLuint langersoTextureObjectId = load_texture_2d(LANGERSO_TEXTURE_ASSET_PATH.c_str());
 	std::size_t langersoVertexCount = langersoMesh.positions.size();
 
+	// Load launchpad mesh
+	auto launchpadMesh = load_wavefront_obj(LAUNCHPAD_OBJ_ASSET_PATH.c_str(), false,
+		make_translation({ 2.f, 0.005f, -2.f }) * make_scaling(0.5f, 0.5f, 0.5f)
+	);
+	GLuint launchpadVao = create_vao(launchpadMesh);
+	std::size_t launchpadVertexCount = launchpadMesh.positions.size();
+
 	// Load rocket mesh
     auto rocketMesh = create_spaceship(32,			// Subdivs
 		{0.2f, 0.2f, 0.2f}, {1.f, 0.2f, 0.2f},		// Colours for rocket body and fins
@@ -327,7 +335,7 @@ int main() try
 
 
 		// Map Rocket model to world
-		// TODO: CHANGE THIS WHEN CONSTRUCTING ANIMATION
+		// TODO: CHANGE THIS WHEN CONSTRUCTING ANIMATION TO REFLECT UPDATED POS OF ROCKET
 		Mat44f model2worldRocket = kIdentity44f;
 		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(model2worldRocket)));
 		Mat44f projCameraWorldRocket = projection * world2camera * model2worldRocket;
@@ -388,6 +396,21 @@ int main() try
         glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldRocket.v);
         glBindVertexArray(rocketVao);
         glDrawArrays(GL_TRIANGLES, 0, rocketVertexCount);
+
+
+
+		/*	FOR LAUNCHPAD MESH	*/
+		// Parse Normalisation matrix to vertex shader
+		glUniformMatrix3fv(
+			1, // make sure this matches the location = N in the vertex shader!
+			1, GL_TRUE, normalMatrixRocket.v
+		);
+
+		// Draw rocket
+		glUniform1i(5, launchpadMesh.isTextureSupplied);
+		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
+		glBindVertexArray(launchpadVao);
+		glDrawArrays(GL_TRIANGLES, 0, launchpadVertexCount);
 
 
         OGL_CHECKPOINT_DEBUG();
