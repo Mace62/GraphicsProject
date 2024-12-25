@@ -333,6 +333,16 @@ int main() try
 		Mat33f normalMatrixLangerso = mat44_to_mat33(transpose(invert(model2worldLangerso)));
 		Mat44f projCameraWorldLangerso = projection * world2camera * model2worldLangerso;
 
+		// Map Launcpad 1 model to world
+		Mat44f model2worldLaunchpad1 = kIdentity44f;
+		Mat33f normalMatrixLaunchpad1 = mat44_to_mat33(transpose(invert(model2worldLaunchpad1)));
+		Mat44f projCameraWorldLaunchpad1 = projection * world2camera * model2worldLaunchpad1;
+
+		// Map Launcpad 1 model to world
+		Mat44f model2worldLaunchpad2 = make_translation({ 3.f, 0.f, -5.f });
+		Mat33f normalMatrixLaunchpad2 = mat44_to_mat33(transpose(invert(model2worldLaunchpad2)));
+		Mat44f projCameraWorldLaunchpad2 = projection * world2camera * model2worldLaunchpad2;
+
 
 		// Map Rocket model to world
 		// TODO: CHANGE THIS WHEN CONSTRUCTING ANIMATION TO REFLECT UPDATED POS OF ROCKET
@@ -359,7 +369,7 @@ int main() try
 
 
 		/*	FOR SCENE MESH	*/
-		// Parse Normalisation matrix to vertex shader
+		// Parse Normalisation matrix to vertex shader for langerso model
 		glUniformMatrix3fv(
 			1, // make sure this matches the location = N in the vertex shader!
 			1, GL_TRUE, normalMatrixLangerso.v
@@ -385,7 +395,7 @@ int main() try
 
 
 		/*	FOR ROCKET MESH	*/
-		// Parse Normalisation matrix to vertex shader
+		// Parse Normalisation matrix to vertex shader for rocket
 		glUniformMatrix3fv(
 			1, // make sure this matches the location = N in the vertex shader!
 			1, GL_TRUE, normalMatrixRocket.v
@@ -400,17 +410,31 @@ int main() try
 
 
 		/*	FOR LAUNCHPAD MESH	*/
-		// Parse Normalisation matrix to vertex shader
+		// Parse Normalisation matrix to vertex shader for launchpad 1
 		glUniformMatrix3fv(
 			1, // make sure this matches the location = N in the vertex shader!
-			1, GL_TRUE, normalMatrixRocket.v
+			1, GL_TRUE, normalMatrixLaunchpad1.v
 		);
 
-		// Draw rocket
+		// Draw launchpad 1
 		glUniform1i(5, launchpadMesh.isTextureSupplied);
-		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
+		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad1.v);
 		glBindVertexArray(launchpadVao);
 		glDrawArrays(GL_TRIANGLES, 0, launchpadVertexCount);
+
+
+		// Parse Normalisation matrix to vertex shader for launchpad 2
+		glUniformMatrix3fv(
+			1, // make sure this matches the location = N in the vertex shader!
+			1, GL_TRUE, normalMatrixLaunchpad2.v
+		);
+
+		// Draw launchpad 1
+		glUniform1i(5, launchpadMesh.isTextureSupplied);
+		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad2.v);
+		glBindVertexArray(launchpadVao);
+		glDrawArrays(GL_TRIANGLES, 0, launchpadVertexCount);
+
 
 
         OGL_CHECKPOINT_DEBUG();
