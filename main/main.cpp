@@ -61,9 +61,9 @@ namespace
 
 		struct CamCtrl_
 		{
-			float FAST_SPEED_MULT = 4.f;
+			float FAST_SPEED_MULT = 2.f;
 			float SLOW_SPEED_MULT = 0.1f;
-			float NORMAL_SPEED_MULT = 1.f;
+			float NORMAL_SPEED_MULT = 0.5f;
 
 			bool movingForward = false;
 			bool movingBack = false;
@@ -252,24 +252,17 @@ int main() try
 	GLuint langersoTextureObjectId = load_texture_2d(LANGERSO_TEXTURE_ASSET_PATH.c_str());
 	std::size_t langersoVertexCount = langersoMesh.positions.size();
 
+	// Load rocket mesh
+    auto rocketMesh = create_spaceship(32,			// Subdivs
+		{0.2f, 0.2f, 0.2f}, {1.f, 0.2f, 0.2f},		// Colours for rocket body and fins
+		make_translation({ 2.f, 0.15f, -2.f }) * make_scaling(0.05f, 0.05f, 0.05f) 		// Pretransform matrix
+	);		
+    GLuint rocketVao = create_vao(rocketMesh);
+    std::size_t rocketVertexCount = rocketMesh.positions.size();
 
-    // TEST CODE:
-    //auto testPrism = make_triangle_based_prism(
-    //    false,
-    //    Vec2f {2.f, 0.f}, Vec2f {0.f, 0.f}, Vec2f {0.f, 2.f},		// Flat x and y co-ords only
-    //    5.f,						// Determines z value
-    //    { 1.f, 1.f, 1.f },
-    //    make_translation({0.f, 5.f, 0.f})
-    //);
-
-    auto testRocket = create_spaceship();
-
-    GLuint testVao = create_vao(testRocket);
-    std::size_t testCount = testRocket.positions.size();
-
-    // Load the spaceship
-    GLuint spaceshipVao, spaceshipVbo, spaceshipEbo;
-    std::size_t spaceshipIndexCount;
+    //// Load the spaceship
+    //GLuint spaceshipVao, spaceshipVbo, spaceshipEbo;
+    //std::size_t spaceshipIndexCount;
 
     OGL_CHECKPOINT_ALWAYS();
 
@@ -302,83 +295,83 @@ int main() try
         }
 
         // Generate rocket geometry (now 11 floats per vertex!)
-        std::vector<float> vertices;
-        std::vector<unsigned int> indices;
+        /*std::vector<float> vertices;
+        std::vector<unsigned int> indices;*/
 
-        createSpaceVehicle(vertices, indices, 0.1f, 0.f, 0.01f, 0.f);
-        spaceshipIndexCount = indices.size();
+        //createSpaceVehicle(vertices, indices, 0.1f, 0.f, 0.01f, 0.f);
+        //spaceshipIndexCount = indices.size();
 
-        // Generate & Bind VAO
-        glGenVertexArrays(1, &spaceshipVao);
-        glBindVertexArray(spaceshipVao);
+        //// Generate & Bind VAO
+        //glGenVertexArrays(1, &spaceshipVao);
+        //glBindVertexArray(spaceshipVao);
 
-        // Generate & Bind VBO
-        glGenBuffers(1, &spaceshipVbo);
-        glBindBuffer(GL_ARRAY_BUFFER, spaceshipVbo);
-        glBufferData(GL_ARRAY_BUFFER,
-            vertices.size() * sizeof(float),
-            vertices.data(),
-            GL_STATIC_DRAW);
+        //// Generate & Bind VBO
+        //glGenBuffers(1, &spaceshipVbo);
+        //glBindBuffer(GL_ARRAY_BUFFER, spaceshipVbo);
+        //glBufferData(GL_ARRAY_BUFFER,
+        //    vertices.size() * sizeof(float),
+        //    vertices.data(),
+        //    GL_STATIC_DRAW);
 
-        // Generate & Bind EBO
-        glGenBuffers(1, &spaceshipEbo);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, spaceshipEbo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-            indices.size() * sizeof(unsigned int),
-            indices.data(),
-            GL_STATIC_DRAW);
+        //// Generate & Bind EBO
+        //glGenBuffers(1, &spaceshipEbo);
+        //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, spaceshipEbo);
+        //glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+        //    indices.size() * sizeof(unsigned int),
+        //    indices.data(),
+        //    GL_STATIC_DRAW);
 
-        //    Define attribute pointers for 11-float layout
-        //    position(3), color(3), normal(3), texCoord(2).
-        //    => stride = 11 * sizeof(float).
-        GLsizei stride = 11 * sizeof(float);
+        ////    Define attribute pointers for 11-float layout
+        ////    position(3), color(3), normal(3), texCoord(2).
+        ////    => stride = 11 * sizeof(float).
+        //GLsizei stride = 11 * sizeof(float);
 
-        // layout(location=0) => position
-        glVertexAttribPointer(
-            0,                   // index
-            3,                   // size (x,y,z)
-            GL_FLOAT,            // type
-            GL_FALSE,            // normalized?
-            stride,              // byte stride
-            (void*)(0)           // offset in the array
-        );
-        glEnableVertexAttribArray(0);
+        //// layout(location=0) => position
+        //glVertexAttribPointer(
+        //    0,                   // index
+        //    3,                   // size (x,y,z)
+        //    GL_FLOAT,            // type
+        //    GL_FALSE,            // normalized?
+        //    stride,              // byte stride
+        //    (void*)(0)           // offset in the array
+        //);
+        //glEnableVertexAttribArray(0);
 
-        // layout(location=1) => color
-        glVertexAttribPointer(
-            1,
-            3,
-            GL_FLOAT,
-            GL_FALSE,
-            stride,
-            (void*)(3 * sizeof(float))
-        );
-        glEnableVertexAttribArray(1);
+        //// layout(location=1) => color
+        //glVertexAttribPointer(
+        //    1,
+        //    3,
+        //    GL_FLOAT,
+        //    GL_FALSE,
+        //    stride,
+        //    (void*)(3 * sizeof(float))
+        //);
+        //glEnableVertexAttribArray(1);
 
-        // layout(location=2) => normal
-        glVertexAttribPointer(
-            2,
-            3,
-            GL_FLOAT,
-            GL_FALSE,
-            stride,
-            (void*)(6 * sizeof(float))
-        );
-        glEnableVertexAttribArray(2);
+        //// layout(location=2) => normal
+        //glVertexAttribPointer(
+        //    2,
+        //    3,
+        //    GL_FLOAT,
+        //    GL_FALSE,
+        //    stride,
+        //    (void*)(6 * sizeof(float))
+        //);
+        //glEnableVertexAttribArray(2);
 
-        // layout(location=3) => texCoord
-        glVertexAttribPointer(
-            3,
-            2,
-            GL_FLOAT,
-            GL_FALSE,
-            stride,
-            (void*)(9 * sizeof(float))
-        );
-        glEnableVertexAttribArray(3);
+        //// layout(location=3) => texCoord
+        //glVertexAttribPointer(
+        //    3,
+        //    2,
+        //    GL_FLOAT,
+        //    GL_FALSE,
+        //    stride,
+        //    (void*)(9 * sizeof(float))
+        //);
+        //glEnableVertexAttribArray(3);
 
-        // Unbind VAO
-        glBindVertexArray(0);
+        //// Unbind VAO
+        //glBindVertexArray(0);
 
 
 		// Update state
@@ -448,11 +441,11 @@ int main() try
 			1, GL_TRUE, normalMatrix.v
 		);
 
-		// Parse Normalisation matrix to vertex shader
-		glUniformMatrix3fv(
-			1, // make sure this matches the location = N in the vertex shader!
-			1, GL_TRUE, normalMatrix.v
-		);
+		//// Parse Normalisation matrix to vertex shader
+		//glUniformMatrix3fv(
+		//	1, // make sure this matches the location = N in the vertex shader!
+		//	1, GL_TRUE, normalMatrix.v
+		//);
 
 		// Task 2 general light dir requirement (needs to be applied to ALL objects)
 		Vec3f lightDir = normalize(Vec3f{ 0.f, 1.f, -1.f });
@@ -463,9 +456,9 @@ int main() try
 
 
 		// Draw spaceship
-		GLint modelLoc = glGetUniformLocation(prog.programId(), "model");
+		/*GLint modelLoc = glGetUniformLocation(prog.programId(), "model");
 		GLint viewLoc = glGetUniformLocation(prog.programId(), "view");
-		GLint projectionLoc = glGetUniformLocation(prog.programId(), "projection");
+		GLint projectionLoc = glGetUniformLocation(prog.programId(), "projection");*/
 
 
 		// Pass matrices to shaders
@@ -484,20 +477,20 @@ int main() try
 
 
 		// Draw scene
-		/*glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
+		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
 		glBindVertexArray(langersoVao);
-		glDrawArrays(GL_TRIANGLES, 0, langersoVertexCount);*/
+		glDrawArrays(GL_TRIANGLES, 0, langersoVertexCount);
 
-		glBindVertexArray(spaceshipVao);
+		/*glBindVertexArray(spaceshipVao);
 		glDrawElements(GL_TRIANGLES, spaceshipIndexCount, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
+		glBindVertexArray(0);*/
 
         glUniform1i(5, 0);
 
 
         glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
-        glBindVertexArray(testVao);
-        glDrawArrays(GL_TRIANGLES, 0, testCount);
+        glBindVertexArray(rocketVao);
+        glDrawArrays(GL_TRIANGLES, 0, rocketVertexCount);
 
 
         OGL_CHECKPOINT_DEBUG();
@@ -657,7 +650,7 @@ namespace
 		}
 	}
 
-	// Add this function to update camera position based on movement
+	// Function to update camera position based on movement
 	void updateCamera(State_::CamCtrl_& camera, float dt)
 	{
 		// Calculate movement speed
@@ -703,640 +696,640 @@ namespace
 	}
 }
 
-namespace
-{
-#include <vector>
-#include <cmath>
-
-
-    inline void pushVertex(
-        std::vector<float>& verts,
-        float px, float py, float pz,      // position
-        float cr, float cg, float cb,      // color
-        float nx, float ny, float nz,      // normal
-        float u, float v                  // texcoords
-    )
-    {
-        verts.push_back(px);
-        verts.push_back(py);
-        verts.push_back(pz);
-
-        verts.push_back(cr);
-        verts.push_back(cg);
-        verts.push_back(cb);
-
-        verts.push_back(nx);
-        verts.push_back(ny);
-        verts.push_back(nz);
-
-        verts.push_back(u);
-        verts.push_back(v);
-    }
-
-
-
-    static void generateCube(
-        std::vector<float>& vertices,
-        std::vector<unsigned int>& indices
-    )
-    {
-        float cR = 0.1f, cG = 0.1f, cB = 0.1f; // Very dark gray
-        unsigned int startIndex = static_cast<unsigned int>(vertices.size() / 11);
-
-
-        // ---------- BACK FACE -----------
-        // -0.5, -0.5, -0.5 => normal (0,0,-1), uv(0,0)
-        pushVertex(vertices, -0.5f, -0.5f, -0.5f, cR, cG, cB, 0.f, 0.f, -1.f, 0.f, 0.f);
-        pushVertex(vertices, 0.5f, -0.5f, -0.5f, cR, cG, cB, 0.f, 0.f, -1.f, 1.f, 0.f);
-        pushVertex(vertices, 0.5f, 0.5f, -0.5f, cR, cG, cB, 0.f, 0.f, -1.f, 1.f, 1.f);
-        pushVertex(vertices, -0.5f, 0.5f, -0.5f, cR, cG, cB, 0.f, 0.f, -1.f, 0.f, 1.f);
-
-        // ---------- FRONT FACE -----------
-        pushVertex(vertices, -0.5f, -0.5f, 0.5f, cR, cG, cB, 0.f, 0.f, 1.f, 0.f, 0.f);
-        pushVertex(vertices, 0.5f, -0.5f, 0.5f, cR, cG, cB, 0.f, 0.f, 1.f, 1.f, 0.f);
-        pushVertex(vertices, 0.5f, 0.5f, 0.5f, cR, cG, cB, 0.f, 0.f, 1.f, 1.f, 1.f);
-        pushVertex(vertices, -0.5f, 0.5f, 0.5f, cR, cG, cB, 0.f, 0.f, 1.f, 0.f, 1.f);
-
-        // ---------- LEFT FACE -----------
-        pushVertex(vertices, -0.5f, 0.5f, 0.5f, cR, cG, cB, -1.f, 0.f, 0.f, 1.f, 0.f);
-        pushVertex(vertices, -0.5f, 0.5f, -0.5f, cR, cG, cB, -1.f, 0.f, 0.f, 1.f, 1.f);
-        pushVertex(vertices, -0.5f, -0.5f, -0.5f, cR, cG, cB, -1.f, 0.f, 0.f, 0.f, 1.f);
-        pushVertex(vertices, -0.5f, -0.5f, 0.5f, cR, cG, cB, -1.f, 0.f, 0.f, 0.f, 0.f);
-
-        // ---------- RIGHT FACE -----------
-        pushVertex(vertices, 0.5f, 0.5f, 0.5f, cR, cG, cB, 1.f, 0.f, 0.f, 1.f, 0.f);
-        pushVertex(vertices, 0.5f, 0.5f, -0.5f, cR, cG, cB, 1.f, 0.f, 0.f, 1.f, 1.f);
-        pushVertex(vertices, 0.5f, -0.5f, -0.5f, cR, cG, cB, 1.f, 0.f, 0.f, 0.f, 1.f);
-        pushVertex(vertices, 0.5f, -0.5f, 0.5f, cR, cG, cB, 1.f, 0.f, 0.f, 0.f, 0.f);
-
-        // ---------- BOTTOM FACE -----------
-        pushVertex(vertices, -0.5f, -0.5f, -0.5f, cR, cG, cB, 0.f, -1.f, 0.f, 0.f, 1.f);
-        pushVertex(vertices, 0.5f, -0.5f, -0.5f, cR, cG, cB, 0.f, -1.f, 0.f, 1.f, 1.f);
-        pushVertex(vertices, 0.5f, -0.5f, 0.5f, cR, cG, cB, 0.f, -1.f, 0.f, 1.f, 0.f);
-        pushVertex(vertices, -0.5f, -0.5f, 0.5f, cR, cG, cB, 0.f, -1.f, 0.f, 0.f, 0.f);
-
-        // ---------- TOP FACE -----------
-        pushVertex(vertices, -0.5f, 0.5f, -0.5f, cR, cG, cB, 0.f, 1.f, 0.f, 0.f, 1.f);
-        pushVertex(vertices, 0.5f, 0.5f, -0.5f, cR, cG, cB, 0.f, 1.f, 0.f, 1.f, 1.f);
-        pushVertex(vertices, 0.5f, 0.5f, 0.5f, cR, cG, cB, 0.f, 1.f, 0.f, 1.f, 0.f);
-        pushVertex(vertices, -0.5f, 0.5f, 0.5f, cR, cG, cB, 0.f, 1.f, 0.f, 0.f, 0.f);
-
-        for (int face = 0; face < 6; ++face)
-        {
-            unsigned int idx0 = startIndex + face * 4 + 0;
-            unsigned int idx1 = startIndex + face * 4 + 1;
-            unsigned int idx2 = startIndex + face * 4 + 2;
-            unsigned int idx3 = startIndex + face * 4 + 3;
-
-            // 1st triangle
-            indices.push_back(idx0);
-            indices.push_back(idx1);
-            indices.push_back(idx2);
-
-            // 2nd triangle
-            indices.push_back(idx2);
-            indices.push_back(idx3);
-            indices.push_back(idx0);
-        }
-    }
-
-
-    static void generateCylinder(
-        float radius, float height, int segments,
-        std::vector<float>& vertices,
-        std::vector<unsigned int>& indices
-    )
-    {
-        float cR = 0.3f, cG = 0.3f, cB = 0.3f; // Medium gray
-        unsigned int startIndex = static_cast<unsigned int>(vertices.size() / 11);
-
-        // ---- TOP CENTER VERTEX ----
-        {
-            // position(0,height,0), color(cR,cG,cB), normal(0,1,0), uv(0.5,0.5)
-            pushVertex(vertices,
-                0.f, height, 0.f,
-                cR, cG, cB,
-                0.f, 1.f, 0.f,
-                0.5f, 0.5f);
-        }
-
-        // For top ring
-        for (int i = 0; i <= segments; ++i)
-        {
-            float theta = 2.0f * float(M_PI) * float(i) / float(segments);
-            float x = radius * cosf(theta);
-            float z = radius * sinf(theta);
-
-            float u = (cosf(theta) * 0.5f) + 0.5f;
-            float v = (sinf(theta) * 0.5f) + 0.5f;
-
-            // position(x,height,z), color(cR,cG,cB), normal(0,1,0), uv(u,v)
-            pushVertex(vertices,
-                x, height, z,
-                cR, cG, cB,
-                0.f, 1.f, 0.f,
-                u, v);
-
-            if (i < segments)
-            {
-                unsigned int centerIdx = startIndex; // top center
-                unsigned int currIdx = startIndex + i + 1;
-                unsigned int nextIdx = startIndex + i + 2;
-                indices.push_back(centerIdx);
-                indices.push_back(currIdx);
-                indices.push_back(nextIdx);
-            }
-        }
-
-        // ---- BOTTOM CENTER VERTEX ----
-        unsigned int bottomCenterIndex = static_cast<unsigned int>(vertices.size() / 11);
-        {
-            pushVertex(vertices,
-                0.f, 0.f, 0.f,
-                cR, cG, cB,
-                0.f, -1.f, 0.f,
-                0.5f, 0.5f);
-        }
-
-        // For bottom ring
-        for (int i = 0; i <= segments; ++i)
-        {
-            float theta = 2.0f * float(M_PI) * float(i) / float(segments);
-            float x = radius * cosf(theta);
-            float z = radius * sinf(theta);
-
-            float u = (cosf(theta) * 0.5f) + 0.5f;
-            float v = (sinf(theta) * 0.5f) + 0.5f;
-
-            pushVertex(vertices,
-                x, 0.f, z,
-                cR, cG, cB,
-                0.f, -1.f, 0.f,
-                u, v);
-
-            if (i < segments)
-            {
-                unsigned int centerIdx = bottomCenterIndex;
-                unsigned int currIdx = bottomCenterIndex + i + 1;
-                unsigned int nextIdx = bottomCenterIndex + i + 2;
-                // reversed order to keep consistent facing
-                indices.push_back(centerIdx);
-                indices.push_back(nextIdx);
-                indices.push_back(currIdx);
-            }
-        }
-
-        // ---- SIDE / WALLS ----
-        unsigned int sideStartIndex = static_cast<unsigned int>(vertices.size() / 11);
-
-        for (int i = 0; i <= segments; ++i)
-        {
-            float theta = 2.0f * float(M_PI) * float(i) / float(segments);
-            float x = radius * cosf(theta);
-            float z = radius * sinf(theta);
-
-            float len = sqrtf(x * x + z * z);
-            float nx = (len > 0.f) ? x / len : 0.f;
-            float nz = (len > 0.f) ? z / len : 0.f;
-
-            float u = float(i) / float(segments);
-
-            // bottom vertex
-            pushVertex(vertices,
-                x, 0.f, z,
-                cR, cG, cB,
-                nx, 0.f, nz,
-                u, 0.f);
-
-            // top vertex
-            pushVertex(vertices,
-                x, height, z,
-                cR, cG, cB,
-                nx, 0.f, nz,
-                u, 1.f);
-
-            if (i < segments)
-            {
-                unsigned int bottom1 = sideStartIndex + i * 2 + 0;
-                unsigned int top1 = sideStartIndex + i * 2 + 1;
-                unsigned int bottom2 = sideStartIndex + (i + 1) * 2 + 0;
-                unsigned int top2 = sideStartIndex + (i + 1) * 2 + 1;
-
-                indices.push_back(bottom1);
-                indices.push_back(top1);
-                indices.push_back(bottom2);
-
-                indices.push_back(bottom2);
-                indices.push_back(top1);
-                indices.push_back(top2);
-            }
-        }
-    }
-
-
-    static void generateCone(
-        float radius, float height, int segments,
-        std::vector<float>& vertices,
-        std::vector<unsigned int>& indices
-    )
-    {
-        float cR = 0.7f, cG = 0.7f, cB = 0.7f; // Lighter gray
-        unsigned int startIndex = static_cast<unsigned int>(vertices.size() / 11);
-
-        // apex (tip)
-        pushVertex(vertices,
-            0.f, height, 0.f,
-            cR, cG, cB,
-            0.f, 1.f, 0.f,
-            0.5f, 0.5f);
-
-        // base center
-        unsigned int baseCenterIndex = static_cast<unsigned int>(vertices.size() / 11);
-        pushVertex(vertices,
-            0.f, 0.f, 0.f,
-            cR, cG, cB,
-            0.f, -1.f, 0.f,
-            0.5f, 0.5f);
-
-        // ring around base
-        for (int i = 0; i <= segments; ++i)
-        {
-            float theta = 2.f * float(M_PI) * float(i) / float(segments);
-            float x = radius * cosf(theta);
-            float z = radius * sinf(theta);
-
-            float u = (cosf(theta) * 0.5f) + 0.5f;
-            float v = (sinf(theta) * 0.5f) + 0.5f;
-
-            // For the base ring, let’s store normal downward or just -y
-            pushVertex(vertices,
-                x, 0.f, z,
-                cR, cG, cB,
-                0.f, -1.f, 0.f,
-                u, v);
-
-            if (i < segments)
-            {
-                unsigned int cIdx = baseCenterIndex;
-                unsigned int currIdx = baseCenterIndex + i + 1;
-                unsigned int nextIdx = baseCenterIndex + i + 2;
-                indices.push_back(cIdx);
-                indices.push_back(nextIdx);
-                indices.push_back(currIdx);
-            }
-        }
-
-        // side
-        unsigned int sideStartIndex = static_cast<unsigned int>(vertices.size() / 11);
-        unsigned int apexIndex = startIndex;
-
-        for (int i = 0; i <= segments; ++i)
-        {
-            float theta = 2.f * float(M_PI) * float(i) / float(segments);
-            float x = radius * cosf(theta);
-            float z = radius * sinf(theta);
-
-            // approximate slant normal
-            float nx = x;
-            float ny = (radius / height);
-            float nz = z;
-            float len = sqrtf(nx * nx + ny * ny + nz * nz);
-            if (len > 0.f) {
-                nx /= len; ny /= len; nz /= len;
-            }
-
-            float u = float(i) / float(segments);
-
-            // side ring
-            pushVertex(vertices,
-                x, 0.f, z,
-                cR, cG, cB,
-                nx, ny, nz,
-                u, 1.f);
-        }
-
-        // side indices
-        for (int i = 0; i < segments; ++i)
-        {
-            unsigned int currIdx = sideStartIndex + i;
-            unsigned int nextIdx = sideStartIndex + i + 1;
-            indices.push_back(apexIndex);
-            indices.push_back(currIdx);
-            indices.push_back(nextIdx);
-        }
-    }
-
-
-    static void generateRightAngledTriPrism(
-        float base,
-        float height,
-        float thickness,
-        std::vector<float>& outVertices,
-        std::vector<unsigned int>& outIndices
-    )
-    {
-        float cR = 0.7f, cG = 0.7f, cB = 0.7f; // same lighter gray
-        unsigned int startIndex = static_cast<unsigned int>(outVertices.size() / 11);
-
-        // v0 top
-        pushVertex(outVertices,
-            0.f, 0.f, 0.f,
-            cR, cG, cB,
-            0.f, 1.f, 0.f,
-            0.f, 0.f);
-
-        // v1 top
-        pushVertex(outVertices,
-            base, 0.f, 0.f,
-            cR, cG, cB,
-            0.f, 1.f, 0.f,
-            1.f, 0.f);
-
-        // v2 top
-        pushVertex(outVertices,
-            0.f, height, 0.f,
-            cR, cG, cB,
-            0.f, 1.f, 0.f,
-            0.f, 1.f);
-
-        // v3 bottom
-        pushVertex(outVertices,
-            0.f, 0.f, -thickness,
-            cR, cG, cB,
-            0.f, -1.f, 0.f,
-            0.f, 0.f);
-
-        // v4 bottom
-        pushVertex(outVertices,
-            base, 0.f, -thickness,
-            cR, cG, cB,
-            0.f, -1.f, 0.f,
-            1.f, 0.f);
-
-        // v5 bottom
-        pushVertex(outVertices,
-            0.f, height, -thickness,
-            cR, cG, cB,
-            0.f, -1.f, 0.f,
-            0.f, 1.f);
-
-        // indices
-        std::vector<unsigned int> localIndices = {
-            // top tri (v0,v1,v2)
-            0,1,2,
-
-            // bottom tri (v3,v5,v4)
-            3,5,4,
-
-            // side1 (v0,v1,v4,v3)
-            0,1,4,
-            0,4,3,
-
-            // side2 (v0,v2,v5,v3)
-            0,2,5,
-            0,5,3,
-
-            // side3 (v1,v2,v5,v4)
-            1,2,5,
-            1,5,4
-        };
-
-        for (auto idx : localIndices)
-        {
-            outIndices.push_back(startIndex + idx);
-        }
-    }
-
-
-    void createSpaceVehicle(
-        std::vector<float>& vertices,
-        std::vector<unsigned int>& indices,
-        float rocketScale,
-        float offsetX,
-        float offsetY,
-        float offsetZ
-    )
-    {
-        // REMEMBER STARTING VERTEX COUNT
-        size_t startVertexCount = vertices.size() / 11;  // now /11
-
-        // GENERATE ROCKET BODY (cylinder)
-        {
-            float bodyRadius = 0.2f;
-            float bodyHeight = 1.0f;
-            generateCylinder(bodyRadius, bodyHeight, 24, vertices, indices);
-        }
-
-        // GENERATE NOSE (cone) & shift it above the body
-        {
-            unsigned int vertexCountBefore = static_cast<unsigned int>(vertices.size() / 11);
-
-            float noseRadius = 0.2f;
-            float noseHeight = 0.4f;
-            generateCone(noseRadius, noseHeight, 24, vertices, indices);
-
-            // shift the cone up by bodyHeight
-            unsigned int vertexCountAfter = static_cast<unsigned int>(vertices.size() / 11);
-            for (unsigned int v = vertexCountBefore; v < vertexCountAfter; ++v)
-            {
-                // each vertex is 11 floats
-                size_t base = v * 11;
-                // "y" = vertices[base+1]
-                vertices[base + 1] += 1.0f; // move the cone up by 1.0
-            }
-        }
-
-        // ADD A SINGLE LARGE CUBE BOOSTER
-        {
-            std::vector<float> boosterCubeVerts;
-            std::vector<unsigned int> boosterCubeIndices;
-            generateCube(boosterCubeVerts, boosterCubeIndices);
-
-            float boosterSize = 0.2f;
-            float boosterOffset = 0.0f;
-
-            auto addOneBigBooster = [&](float angleRadians)
-            {
-                unsigned int startLocal = static_cast<unsigned int>(vertices.size() / 11);
-
-                // copy geometry
-                for (size_t i = 0; i < boosterCubeVerts.size(); i += 11)
-                {
-                    float x = boosterCubeVerts[i + 0];
-                    float y = boosterCubeVerts[i + 1];
-                    float z = boosterCubeVerts[i + 2];
-
-                    float r = boosterCubeVerts[i + 3];
-                    float g = boosterCubeVerts[i + 4];
-                    float b = boosterCubeVerts[i + 5];
-
-                    float nx = boosterCubeVerts[i + 6];
-                    float ny = boosterCubeVerts[i + 7];
-                    float nz = boosterCubeVerts[i + 8];
-
-                    float u = boosterCubeVerts[i + 9];
-                    float v = boosterCubeVerts[i + 10];
-
-                    // scale in X/Z
-                    x *= boosterSize;
-                    z *= boosterSize;
-                    // maybe scale y differently
-                    y *= boosterSize * 0.2f;
-
-                    // offset from rocket center?
-                    float px = boosterOffset * cosf(angleRadians);
-                    float pz = boosterOffset * sinf(angleRadians);
-                    x += px;
-                    z += pz;
-
-                    // push to main array
-                    pushVertex(vertices,
-                        x, y, z, r, g, b, nx, ny, nz, u, v);
-                }
-
-                // fix up indices
-                for (auto idx : boosterCubeIndices)
-                {
-                    indices.push_back(startLocal + idx);
-                }
-            };
-
-            addOneBigBooster(0.0f);
-        }
-
-        // ADD PRIMARY TRIANGULAR FINS (4)
-        {
-            std::vector<float> triVerts;
-            std::vector<unsigned int> triIndices;
-            generateRightAngledTriPrism(0.3f, 0.2f, 0.02f, triVerts, triIndices);
-
-            auto addTriFin = [&](float angleRadians, float baseY)
-            {
-                unsigned int startLocal = static_cast<unsigned int>(vertices.size() / 11);
-
-                for (size_t i = 0; i < triVerts.size(); i += 11)
-                {
-                    float x = triVerts[i + 0];
-                    float y = triVerts[i + 1];
-                    float z = triVerts[i + 2];
-
-                    float r = triVerts[i + 3];
-                    float g = triVerts[i + 4];
-                    float b = triVerts[i + 5];
-
-                    float nx = triVerts[i + 6];
-                    float ny = triVerts[i + 7];
-                    float nz = triVerts[i + 8];
-
-                    float u = triVerts[i + 9];
-                    float v = triVerts[i + 10];
-
-                    // shift upward
-                    y += baseY;
-
-                    // rotate around Y
-                    float xRot = x * cosf(angleRadians) - z * sinf(angleRadians);
-                    float zRot = x * sinf(angleRadians) + z * cosf(angleRadians);
-                    x = xRot; z = zRot;
-
-                    // outward from rocket
-                    float rocketRadius = 0.2f;
-                    x += rocketRadius * cosf(angleRadians);
-                    z += rocketRadius * sinf(angleRadians);
-
-                    // push
-                    pushVertex(vertices,
-                        x, y, z, r, g, b, nx, ny, nz, u, v);
-                }
-
-                for (auto idx : triIndices)
-                {
-                    indices.push_back(startLocal + idx);
-                }
-            };
-
-            float primaryFinY = 0.f;
-            for (int i = 0; i < 4; ++i)
-            {
-                float angle = float(i) * (2.f * float(M_PI) / 4.f);
-                addTriFin(angle, primaryFinY);
-            }
-        }
-
-        // ADD 2 SMALLER TRIANGULAR FINS (HIGHER ON THE ROCKET)
-        {
-            std::vector<float> triVerts;
-            std::vector<unsigned int> triIndices;
-            generateRightAngledTriPrism(0.2f, 0.15f, 0.01f, triVerts, triIndices);
-
-            auto addSmallFin = [&](float angleRadians, float baseY)
-            {
-                unsigned int startLocal = static_cast<unsigned int>(vertices.size() / 11);
-
-                for (size_t i = 0; i < triVerts.size(); i += 11)
-                {
-                    float x = triVerts[i + 0];
-                    float y = triVerts[i + 1];
-                    float z = triVerts[i + 2];
-
-                    float r = triVerts[i + 3];
-                    float g = triVerts[i + 4];
-                    float b = triVerts[i + 5];
-
-                    float nx = triVerts[i + 6];
-                    float ny = triVerts[i + 7];
-                    float nz = triVerts[i + 8];
-
-                    float u = triVerts[i + 9];
-                    float v = triVerts[i + 10];
-
-                    y += baseY;
-
-                    // rotate around Y
-                    float xRot = x * cosf(angleRadians) - z * sinf(angleRadians);
-                    float zRot = x * sinf(angleRadians) + z * cosf(angleRadians);
-                    x = xRot; z = zRot;
-
-                    float rocketRadius = 0.2f;
-                    x += rocketRadius * cosf(angleRadians);
-                    z += rocketRadius * sinf(angleRadians);
-
-                    pushVertex(vertices,
-                        x, y, z, r, g, b, nx, ny, nz, u, v);
-                }
-
-                for (auto idx : triIndices)
-                {
-                    indices.push_back(startLocal + idx);
-                }
-            };
-
-            float smallerFinY = 0.7f;
-            addSmallFin(0.f, smallerFinY); // front
-            addSmallFin(M_PI, smallerFinY); // back
-        }
-
-        {
-            size_t newVertexCount = vertices.size() / 11;
-            for (size_t v = startVertexCount; v < newVertexCount; ++v)
-            {
-                size_t base = v * 11;
-                // Scale
-                vertices[base + 0] *= rocketScale;
-                vertices[base + 1] *= rocketScale;
-                vertices[base + 2] *= rocketScale;
-
-                // Then offset
-                vertices[base + 0] += offsetX;
-                vertices[base + 1] += offsetY;
-                vertices[base + 2] += offsetZ;
-            }
-        }
-    }
-
-
-
-}
+//namespace
+//{
+//#include <vector>
+//#include <cmath>
+//
+//
+//    inline void pushVertex(
+//        std::vector<float>& verts,
+//        float px, float py, float pz,      // position
+//        float cr, float cg, float cb,      // color
+//        float nx, float ny, float nz,      // normal
+//        float u, float v                  // texcoords
+//    )
+//    {
+//        verts.push_back(px);
+//        verts.push_back(py);
+//        verts.push_back(pz);
+//
+//        verts.push_back(cr);
+//        verts.push_back(cg);
+//        verts.push_back(cb);
+//
+//        verts.push_back(nx);
+//        verts.push_back(ny);
+//        verts.push_back(nz);
+//
+//        verts.push_back(u);
+//        verts.push_back(v);
+//    }
+//
+//
+//
+//    static void generateCube(
+//        std::vector<float>& vertices,
+//        std::vector<unsigned int>& indices
+//    )
+//    {
+//        float cR = 0.1f, cG = 0.1f, cB = 0.1f; // Very dark gray
+//        unsigned int startIndex = static_cast<unsigned int>(vertices.size() / 11);
+//
+//
+//        // ---------- BACK FACE -----------
+//        // -0.5, -0.5, -0.5 => normal (0,0,-1), uv(0,0)
+//        pushVertex(vertices, -0.5f, -0.5f, -0.5f, cR, cG, cB, 0.f, 0.f, -1.f, 0.f, 0.f);
+//        pushVertex(vertices, 0.5f, -0.5f, -0.5f, cR, cG, cB, 0.f, 0.f, -1.f, 1.f, 0.f);
+//        pushVertex(vertices, 0.5f, 0.5f, -0.5f, cR, cG, cB, 0.f, 0.f, -1.f, 1.f, 1.f);
+//        pushVertex(vertices, -0.5f, 0.5f, -0.5f, cR, cG, cB, 0.f, 0.f, -1.f, 0.f, 1.f);
+//
+//        // ---------- FRONT FACE -----------
+//        pushVertex(vertices, -0.5f, -0.5f, 0.5f, cR, cG, cB, 0.f, 0.f, 1.f, 0.f, 0.f);
+//        pushVertex(vertices, 0.5f, -0.5f, 0.5f, cR, cG, cB, 0.f, 0.f, 1.f, 1.f, 0.f);
+//        pushVertex(vertices, 0.5f, 0.5f, 0.5f, cR, cG, cB, 0.f, 0.f, 1.f, 1.f, 1.f);
+//        pushVertex(vertices, -0.5f, 0.5f, 0.5f, cR, cG, cB, 0.f, 0.f, 1.f, 0.f, 1.f);
+//
+//        // ---------- LEFT FACE -----------
+//        pushVertex(vertices, -0.5f, 0.5f, 0.5f, cR, cG, cB, -1.f, 0.f, 0.f, 1.f, 0.f);
+//        pushVertex(vertices, -0.5f, 0.5f, -0.5f, cR, cG, cB, -1.f, 0.f, 0.f, 1.f, 1.f);
+//        pushVertex(vertices, -0.5f, -0.5f, -0.5f, cR, cG, cB, -1.f, 0.f, 0.f, 0.f, 1.f);
+//        pushVertex(vertices, -0.5f, -0.5f, 0.5f, cR, cG, cB, -1.f, 0.f, 0.f, 0.f, 0.f);
+//
+//        // ---------- RIGHT FACE -----------
+//        pushVertex(vertices, 0.5f, 0.5f, 0.5f, cR, cG, cB, 1.f, 0.f, 0.f, 1.f, 0.f);
+//        pushVertex(vertices, 0.5f, 0.5f, -0.5f, cR, cG, cB, 1.f, 0.f, 0.f, 1.f, 1.f);
+//        pushVertex(vertices, 0.5f, -0.5f, -0.5f, cR, cG, cB, 1.f, 0.f, 0.f, 0.f, 1.f);
+//        pushVertex(vertices, 0.5f, -0.5f, 0.5f, cR, cG, cB, 1.f, 0.f, 0.f, 0.f, 0.f);
+//
+//        // ---------- BOTTOM FACE -----------
+//        pushVertex(vertices, -0.5f, -0.5f, -0.5f, cR, cG, cB, 0.f, -1.f, 0.f, 0.f, 1.f);
+//        pushVertex(vertices, 0.5f, -0.5f, -0.5f, cR, cG, cB, 0.f, -1.f, 0.f, 1.f, 1.f);
+//        pushVertex(vertices, 0.5f, -0.5f, 0.5f, cR, cG, cB, 0.f, -1.f, 0.f, 1.f, 0.f);
+//        pushVertex(vertices, -0.5f, -0.5f, 0.5f, cR, cG, cB, 0.f, -1.f, 0.f, 0.f, 0.f);
+//
+//        // ---------- TOP FACE -----------
+//        pushVertex(vertices, -0.5f, 0.5f, -0.5f, cR, cG, cB, 0.f, 1.f, 0.f, 0.f, 1.f);
+//        pushVertex(vertices, 0.5f, 0.5f, -0.5f, cR, cG, cB, 0.f, 1.f, 0.f, 1.f, 1.f);
+//        pushVertex(vertices, 0.5f, 0.5f, 0.5f, cR, cG, cB, 0.f, 1.f, 0.f, 1.f, 0.f);
+//        pushVertex(vertices, -0.5f, 0.5f, 0.5f, cR, cG, cB, 0.f, 1.f, 0.f, 0.f, 0.f);
+//
+//        for (int face = 0; face < 6; ++face)
+//        {
+//            unsigned int idx0 = startIndex + face * 4 + 0;
+//            unsigned int idx1 = startIndex + face * 4 + 1;
+//            unsigned int idx2 = startIndex + face * 4 + 2;
+//            unsigned int idx3 = startIndex + face * 4 + 3;
+//
+//            // 1st triangle
+//            indices.push_back(idx0);
+//            indices.push_back(idx1);
+//            indices.push_back(idx2);
+//
+//            // 2nd triangle
+//            indices.push_back(idx2);
+//            indices.push_back(idx3);
+//            indices.push_back(idx0);
+//        }
+//    }
+//
+//
+//    static void generateCylinder(
+//        float radius, float height, int segments,
+//        std::vector<float>& vertices,
+//        std::vector<unsigned int>& indices
+//    )
+//    {
+//        float cR = 0.3f, cG = 0.3f, cB = 0.3f; // Medium gray
+//        unsigned int startIndex = static_cast<unsigned int>(vertices.size() / 11);
+//
+//        // ---- TOP CENTER VERTEX ----
+//        {
+//            // position(0,height,0), color(cR,cG,cB), normal(0,1,0), uv(0.5,0.5)
+//            pushVertex(vertices,
+//                0.f, height, 0.f,
+//                cR, cG, cB,
+//                0.f, 1.f, 0.f,
+//                0.5f, 0.5f);
+//        }
+//
+//        // For top ring
+//        for (int i = 0; i <= segments; ++i)
+//        {
+//            float theta = 2.0f * float(M_PI) * float(i) / float(segments);
+//            float x = radius * cosf(theta);
+//            float z = radius * sinf(theta);
+//
+//            float u = (cosf(theta) * 0.5f) + 0.5f;
+//            float v = (sinf(theta) * 0.5f) + 0.5f;
+//
+//            // position(x,height,z), color(cR,cG,cB), normal(0,1,0), uv(u,v)
+//            pushVertex(vertices,
+//                x, height, z,
+//                cR, cG, cB,
+//                0.f, 1.f, 0.f,
+//                u, v);
+//
+//            if (i < segments)
+//            {
+//                unsigned int centerIdx = startIndex; // top center
+//                unsigned int currIdx = startIndex + i + 1;
+//                unsigned int nextIdx = startIndex + i + 2;
+//                indices.push_back(centerIdx);
+//                indices.push_back(currIdx);
+//                indices.push_back(nextIdx);
+//            }
+//        }
+//
+//        // ---- BOTTOM CENTER VERTEX ----
+//        unsigned int bottomCenterIndex = static_cast<unsigned int>(vertices.size() / 11);
+//        {
+//            pushVertex(vertices,
+//                0.f, 0.f, 0.f,
+//                cR, cG, cB,
+//                0.f, -1.f, 0.f,
+//                0.5f, 0.5f);
+//        }
+//
+//        // For bottom ring
+//        for (int i = 0; i <= segments; ++i)
+//        {
+//            float theta = 2.0f * float(M_PI) * float(i) / float(segments);
+//            float x = radius * cosf(theta);
+//            float z = radius * sinf(theta);
+//
+//            float u = (cosf(theta) * 0.5f) + 0.5f;
+//            float v = (sinf(theta) * 0.5f) + 0.5f;
+//
+//            pushVertex(vertices,
+//                x, 0.f, z,
+//                cR, cG, cB,
+//                0.f, -1.f, 0.f,
+//                u, v);
+//
+//            if (i < segments)
+//            {
+//                unsigned int centerIdx = bottomCenterIndex;
+//                unsigned int currIdx = bottomCenterIndex + i + 1;
+//                unsigned int nextIdx = bottomCenterIndex + i + 2;
+//                // reversed order to keep consistent facing
+//                indices.push_back(centerIdx);
+//                indices.push_back(nextIdx);
+//                indices.push_back(currIdx);
+//            }
+//        }
+//
+//        // ---- SIDE / WALLS ----
+//        unsigned int sideStartIndex = static_cast<unsigned int>(vertices.size() / 11);
+//
+//        for (int i = 0; i <= segments; ++i)
+//        {
+//            float theta = 2.0f * float(M_PI) * float(i) / float(segments);
+//            float x = radius * cosf(theta);
+//            float z = radius * sinf(theta);
+//
+//            float len = sqrtf(x * x + z * z);
+//            float nx = (len > 0.f) ? x / len : 0.f;
+//            float nz = (len > 0.f) ? z / len : 0.f;
+//
+//            float u = float(i) / float(segments);
+//
+//            // bottom vertex
+//            pushVertex(vertices,
+//                x, 0.f, z,
+//                cR, cG, cB,
+//                nx, 0.f, nz,
+//                u, 0.f);
+//
+//            // top vertex
+//            pushVertex(vertices,
+//                x, height, z,
+//                cR, cG, cB,
+//                nx, 0.f, nz,
+//                u, 1.f);
+//
+//            if (i < segments)
+//            {
+//                unsigned int bottom1 = sideStartIndex + i * 2 + 0;
+//                unsigned int top1 = sideStartIndex + i * 2 + 1;
+//                unsigned int bottom2 = sideStartIndex + (i + 1) * 2 + 0;
+//                unsigned int top2 = sideStartIndex + (i + 1) * 2 + 1;
+//
+//                indices.push_back(bottom1);
+//                indices.push_back(top1);
+//                indices.push_back(bottom2);
+//
+//                indices.push_back(bottom2);
+//                indices.push_back(top1);
+//                indices.push_back(top2);
+//            }
+//        }
+//    }
+//
+//
+//    static void generateCone(
+//        float radius, float height, int segments,
+//        std::vector<float>& vertices,
+//        std::vector<unsigned int>& indices
+//    )
+//    {
+//        float cR = 0.7f, cG = 0.7f, cB = 0.7f; // Lighter gray
+//        unsigned int startIndex = static_cast<unsigned int>(vertices.size() / 11);
+//
+//        // apex (tip)
+//        pushVertex(vertices,
+//            0.f, height, 0.f,
+//            cR, cG, cB,
+//            0.f, 1.f, 0.f,
+//            0.5f, 0.5f);
+//
+//        // base center
+//        unsigned int baseCenterIndex = static_cast<unsigned int>(vertices.size() / 11);
+//        pushVertex(vertices,
+//            0.f, 0.f, 0.f,
+//            cR, cG, cB,
+//            0.f, -1.f, 0.f,
+//            0.5f, 0.5f);
+//
+//        // ring around base
+//        for (int i = 0; i <= segments; ++i)
+//        {
+//            float theta = 2.f * float(M_PI) * float(i) / float(segments);
+//            float x = radius * cosf(theta);
+//            float z = radius * sinf(theta);
+//
+//            float u = (cosf(theta) * 0.5f) + 0.5f;
+//            float v = (sinf(theta) * 0.5f) + 0.5f;
+//
+//            // For the base ring, let’s store normal downward or just -y
+//            pushVertex(vertices,
+//                x, 0.f, z,
+//                cR, cG, cB,
+//                0.f, -1.f, 0.f,
+//                u, v);
+//
+//            if (i < segments)
+//            {
+//                unsigned int cIdx = baseCenterIndex;
+//                unsigned int currIdx = baseCenterIndex + i + 1;
+//                unsigned int nextIdx = baseCenterIndex + i + 2;
+//                indices.push_back(cIdx);
+//                indices.push_back(nextIdx);
+//                indices.push_back(currIdx);
+//            }
+//        }
+//
+//        // side
+//        unsigned int sideStartIndex = static_cast<unsigned int>(vertices.size() / 11);
+//        unsigned int apexIndex = startIndex;
+//
+//        for (int i = 0; i <= segments; ++i)
+//        {
+//            float theta = 2.f * float(M_PI) * float(i) / float(segments);
+//            float x = radius * cosf(theta);
+//            float z = radius * sinf(theta);
+//
+//            // approximate slant normal
+//            float nx = x;
+//            float ny = (radius / height);
+//            float nz = z;
+//            float len = sqrtf(nx * nx + ny * ny + nz * nz);
+//            if (len > 0.f) {
+//                nx /= len; ny /= len; nz /= len;
+//            }
+//
+//            float u = float(i) / float(segments);
+//
+//            // side ring
+//            pushVertex(vertices,
+//                x, 0.f, z,
+//                cR, cG, cB,
+//                nx, ny, nz,
+//                u, 1.f);
+//        }
+//
+//        // side indices
+//        for (int i = 0; i < segments; ++i)
+//        {
+//            unsigned int currIdx = sideStartIndex + i;
+//            unsigned int nextIdx = sideStartIndex + i + 1;
+//            indices.push_back(apexIndex);
+//            indices.push_back(currIdx);
+//            indices.push_back(nextIdx);
+//        }
+//    }
+//
+//
+//    static void generateRightAngledTriPrism(
+//        float base,
+//        float height,
+//        float thickness,
+//        std::vector<float>& outVertices,
+//        std::vector<unsigned int>& outIndices
+//    )
+//    {
+//        float cR = 0.7f, cG = 0.7f, cB = 0.7f; // same lighter gray
+//        unsigned int startIndex = static_cast<unsigned int>(outVertices.size() / 11);
+//
+//        // v0 top
+//        pushVertex(outVertices,
+//            0.f, 0.f, 0.f,
+//            cR, cG, cB,
+//            0.f, 1.f, 0.f,
+//            0.f, 0.f);
+//
+//        // v1 top
+//        pushVertex(outVertices,
+//            base, 0.f, 0.f,
+//            cR, cG, cB,
+//            0.f, 1.f, 0.f,
+//            1.f, 0.f);
+//
+//        // v2 top
+//        pushVertex(outVertices,
+//            0.f, height, 0.f,
+//            cR, cG, cB,
+//            0.f, 1.f, 0.f,
+//            0.f, 1.f);
+//
+//        // v3 bottom
+//        pushVertex(outVertices,
+//            0.f, 0.f, -thickness,
+//            cR, cG, cB,
+//            0.f, -1.f, 0.f,
+//            0.f, 0.f);
+//
+//        // v4 bottom
+//        pushVertex(outVertices,
+//            base, 0.f, -thickness,
+//            cR, cG, cB,
+//            0.f, -1.f, 0.f,
+//            1.f, 0.f);
+//
+//        // v5 bottom
+//        pushVertex(outVertices,
+//            0.f, height, -thickness,
+//            cR, cG, cB,
+//            0.f, -1.f, 0.f,
+//            0.f, 1.f);
+//
+//        // indices
+//        std::vector<unsigned int> localIndices = {
+//            // top tri (v0,v1,v2)
+//            0,1,2,
+//
+//            // bottom tri (v3,v5,v4)
+//            3,5,4,
+//
+//            // side1 (v0,v1,v4,v3)
+//            0,1,4,
+//            0,4,3,
+//
+//            // side2 (v0,v2,v5,v3)
+//            0,2,5,
+//            0,5,3,
+//
+//            // side3 (v1,v2,v5,v4)
+//            1,2,5,
+//            1,5,4
+//        };
+//
+//        for (auto idx : localIndices)
+//        {
+//            outIndices.push_back(startIndex + idx);
+//        }
+//    }
+//
+//
+//    void createSpaceVehicle(
+//        std::vector<float>& vertices,
+//        std::vector<unsigned int>& indices,
+//        float rocketScale,
+//        float offsetX,
+//        float offsetY,
+//        float offsetZ
+//    )
+//    {
+//        // REMEMBER STARTING VERTEX COUNT
+//        size_t startVertexCount = vertices.size() / 11;  // now /11
+//
+//        // GENERATE ROCKET BODY (cylinder)
+//        {
+//            float bodyRadius = 0.2f;
+//            float bodyHeight = 1.0f;
+//            generateCylinder(bodyRadius, bodyHeight, 24, vertices, indices);
+//        }
+//
+//        // GENERATE NOSE (cone) & shift it above the body
+//        {
+//            unsigned int vertexCountBefore = static_cast<unsigned int>(vertices.size() / 11);
+//
+//            float noseRadius = 0.2f;
+//            float noseHeight = 0.4f;
+//            generateCone(noseRadius, noseHeight, 24, vertices, indices);
+//
+//            // shift the cone up by bodyHeight
+//            unsigned int vertexCountAfter = static_cast<unsigned int>(vertices.size() / 11);
+//            for (unsigned int v = vertexCountBefore; v < vertexCountAfter; ++v)
+//            {
+//                // each vertex is 11 floats
+//                size_t base = v * 11;
+//                // "y" = vertices[base+1]
+//                vertices[base + 1] += 1.0f; // move the cone up by 1.0
+//            }
+//        }
+//
+//        // ADD A SINGLE LARGE CUBE BOOSTER
+//        {
+//            std::vector<float> boosterCubeVerts;
+//            std::vector<unsigned int> boosterCubeIndices;
+//            generateCube(boosterCubeVerts, boosterCubeIndices);
+//
+//            float boosterSize = 0.2f;
+//            float boosterOffset = 0.0f;
+//
+//            auto addOneBigBooster = [&](float angleRadians)
+//            {
+//                unsigned int startLocal = static_cast<unsigned int>(vertices.size() / 11);
+//
+//                // copy geometry
+//                for (size_t i = 0; i < boosterCubeVerts.size(); i += 11)
+//                {
+//                    float x = boosterCubeVerts[i + 0];
+//                    float y = boosterCubeVerts[i + 1];
+//                    float z = boosterCubeVerts[i + 2];
+//
+//                    float r = boosterCubeVerts[i + 3];
+//                    float g = boosterCubeVerts[i + 4];
+//                    float b = boosterCubeVerts[i + 5];
+//
+//                    float nx = boosterCubeVerts[i + 6];
+//                    float ny = boosterCubeVerts[i + 7];
+//                    float nz = boosterCubeVerts[i + 8];
+//
+//                    float u = boosterCubeVerts[i + 9];
+//                    float v = boosterCubeVerts[i + 10];
+//
+//                    // scale in X/Z
+//                    x *= boosterSize;
+//                    z *= boosterSize;
+//                    // maybe scale y differently
+//                    y *= boosterSize * 0.2f;
+//
+//                    // offset from rocket center?
+//                    float px = boosterOffset * cosf(angleRadians);
+//                    float pz = boosterOffset * sinf(angleRadians);
+//                    x += px;
+//                    z += pz;
+//
+//                    // push to main array
+//                    pushVertex(vertices,
+//                        x, y, z, r, g, b, nx, ny, nz, u, v);
+//                }
+//
+//                // fix up indices
+//                for (auto idx : boosterCubeIndices)
+//                {
+//                    indices.push_back(startLocal + idx);
+//                }
+//            };
+//
+//            addOneBigBooster(0.0f);
+//        }
+//
+//        // ADD PRIMARY TRIANGULAR FINS (4)
+//        {
+//            std::vector<float> triVerts;
+//            std::vector<unsigned int> triIndices;
+//            generateRightAngledTriPrism(0.3f, 0.2f, 0.02f, triVerts, triIndices);
+//
+//            auto addTriFin = [&](float angleRadians, float baseY)
+//            {
+//                unsigned int startLocal = static_cast<unsigned int>(vertices.size() / 11);
+//
+//                for (size_t i = 0; i < triVerts.size(); i += 11)
+//                {
+//                    float x = triVerts[i + 0];
+//                    float y = triVerts[i + 1];
+//                    float z = triVerts[i + 2];
+//
+//                    float r = triVerts[i + 3];
+//                    float g = triVerts[i + 4];
+//                    float b = triVerts[i + 5];
+//
+//                    float nx = triVerts[i + 6];
+//                    float ny = triVerts[i + 7];
+//                    float nz = triVerts[i + 8];
+//
+//                    float u = triVerts[i + 9];
+//                    float v = triVerts[i + 10];
+//
+//                    // shift upward
+//                    y += baseY;
+//
+//                    // rotate around Y
+//                    float xRot = x * cosf(angleRadians) - z * sinf(angleRadians);
+//                    float zRot = x * sinf(angleRadians) + z * cosf(angleRadians);
+//                    x = xRot; z = zRot;
+//
+//                    // outward from rocket
+//                    float rocketRadius = 0.2f;
+//                    x += rocketRadius * cosf(angleRadians);
+//                    z += rocketRadius * sinf(angleRadians);
+//
+//                    // push
+//                    pushVertex(vertices,
+//                        x, y, z, r, g, b, nx, ny, nz, u, v);
+//                }
+//
+//                for (auto idx : triIndices)
+//                {
+//                    indices.push_back(startLocal + idx);
+//                }
+//            };
+//
+//            float primaryFinY = 0.f;
+//            for (int i = 0; i < 4; ++i)
+//            {
+//                float angle = float(i) * (2.f * float(M_PI) / 4.f);
+//                addTriFin(angle, primaryFinY);
+//            }
+//        }
+//
+//        // ADD 2 SMALLER TRIANGULAR FINS (HIGHER ON THE ROCKET)
+//        {
+//            std::vector<float> triVerts;
+//            std::vector<unsigned int> triIndices;
+//            generateRightAngledTriPrism(0.2f, 0.15f, 0.01f, triVerts, triIndices);
+//
+//            auto addSmallFin = [&](float angleRadians, float baseY)
+//            {
+//                unsigned int startLocal = static_cast<unsigned int>(vertices.size() / 11);
+//
+//                for (size_t i = 0; i < triVerts.size(); i += 11)
+//                {
+//                    float x = triVerts[i + 0];
+//                    float y = triVerts[i + 1];
+//                    float z = triVerts[i + 2];
+//
+//                    float r = triVerts[i + 3];
+//                    float g = triVerts[i + 4];
+//                    float b = triVerts[i + 5];
+//
+//                    float nx = triVerts[i + 6];
+//                    float ny = triVerts[i + 7];
+//                    float nz = triVerts[i + 8];
+//
+//                    float u = triVerts[i + 9];
+//                    float v = triVerts[i + 10];
+//
+//                    y += baseY;
+//
+//                    // rotate around Y
+//                    float xRot = x * cosf(angleRadians) - z * sinf(angleRadians);
+//                    float zRot = x * sinf(angleRadians) + z * cosf(angleRadians);
+//                    x = xRot; z = zRot;
+//
+//                    float rocketRadius = 0.2f;
+//                    x += rocketRadius * cosf(angleRadians);
+//                    z += rocketRadius * sinf(angleRadians);
+//
+//                    pushVertex(vertices,
+//                        x, y, z, r, g, b, nx, ny, nz, u, v);
+//                }
+//
+//                for (auto idx : triIndices)
+//                {
+//                    indices.push_back(startLocal + idx);
+//                }
+//            };
+//
+//            float smallerFinY = 0.7f;
+//            addSmallFin(0.f, smallerFinY); // front
+//            addSmallFin(M_PI, smallerFinY); // back
+//        }
+//
+//        {
+//            size_t newVertexCount = vertices.size() / 11;
+//            for (size_t v = startVertexCount; v < newVertexCount; ++v)
+//            {
+//                size_t base = v * 11;
+//                // Scale
+//                vertices[base + 0] *= rocketScale;
+//                vertices[base + 1] *= rocketScale;
+//                vertices[base + 2] *= rocketScale;
+//
+//                // Then offset
+//                vertices[base + 0] += offsetX;
+//                vertices[base + 1] += offsetY;
+//                vertices[base + 2] += offsetZ;
+//            }
+//        }
+//    }
+//
+//
+//
+//}
 
 namespace
 {

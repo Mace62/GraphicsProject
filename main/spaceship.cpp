@@ -112,7 +112,7 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 
 	// Create cone for nose of spacecraft
 	auto spaceshipNoseCone = make_cone(false, aSubdivs, aColorMainBody,
-		make_translation({ 2.f, 0.f, 0.f }) * make_scaling(2.f, 0.5f, 0.5f)
+		make_translation({ 2.f, 0.f, 0.f }) * make_scaling(1.f, 0.5f, 0.5f)
 	);
 
 	// Create 2 wings as "flight control surfaces"
@@ -185,6 +185,16 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	rocketData.mins = Vec2f{ 0.f, 0.f };
 	rocketData.diffs = Vec2f{ 0.f, 0.f };
 
+    // Apply pretransform matrix
+    // Transform positions by aPreTransform
+    for (auto& p : rocketData.positions)
+    {
+        Vec4f p4{ p.x, p.y, p.z, 1.f };
+        Vec4f t = aPreTransform * make_rotation_z(std::numbers::pi_v<float> / 2.f) * p4;
+        t /= t.w;
+
+        p = Vec3f{ t.x, t.y, t.z };
+    }
 
 	return rocketData;
 }
