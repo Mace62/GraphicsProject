@@ -71,6 +71,18 @@ SimpleMeshData make_cone(bool aCapped, std::size_t aSubdivs, Vec3f aColor, Mat44
         p = Vec3f{ t.x, t.y, t.z };
     }
 
+    for (auto& n : data.normals)
+    {
+        // Transform the normal using N (inverse transpose of the transformation matrix)
+        Vec3f transformedNormal = N * n;
+
+        // Normalize the transformed normal
+        transformedNormal = normalize(transformedNormal);
+
+        // Assign the normalized normal back
+        n = transformedNormal;
+    }
+
     // Add colours
     data.colors.assign(data.positions.size(), aColor);
     return data;

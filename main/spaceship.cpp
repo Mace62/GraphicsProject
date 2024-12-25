@@ -19,6 +19,11 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 
 	SimpleMeshData rocketData{};
 
+	// Precompute the normal matrix (3x3 inverse-transpose submatrix of aPreTransform)
+	aPreTransform = aPreTransform * make_rotation_z(std::numbers::pi_v<float> / 2.f);
+
+	Mat33f const N = mat44_to_mat33(transpose(invert(aPreTransform)));
+
 	// Create cylinder for main body
 	auto mainBodyCylinder = make_cylinder(true, aSubdivs, aColorMainBody,
 		make_scaling(4.f, 0.5f, 0.5f) * make_translation({ -0.5f, 0.f, 0.f })		// Centre cylinder first, then apply scaling
@@ -30,47 +35,54 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	);
 
 	// Create 2 wings as "flight control surfaces"
-	auto wingTriangleBasedPrism = make_triangle_based_prism( true, 
+	auto wingTriangleBasedPrism1 = make_triangle_based_prism( true, 
 		{1.5f, 0.f}, { 0.f, 0.f }, { 0.f, 1.f },
 		0.05f, aColorWings,
 		make_rotation_y(-90 *(std::numbers::pi_v<float> / 180.0)) * make_translation({0.f, 1.f, -0.5f}) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
 	);
 
-	rocketData = concatenate(std::move(mainBodyCylinder), spaceshipNoseCone);
-
-	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism);
-
-	// Loop through the original positions and apply matrix
-	for (auto& pos : wingTriangleBasedPrism.positions) {
-		// Transform the position with the rotation matrix
-		Vec4f transformedPos = make_rotation_x(std::numbers::pi_v<float>) * Vec4f{ pos.x, pos.y, pos.z, 1.f };
-
-		// Replace the current position with the transformed position
-		pos = Vec3f{ transformedPos.x, transformedPos.y, transformedPos.z };
-	}
-	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism);
-
-
-
-	// Create 4 rocket holder stands
-	auto standTriangleBasedPrism = make_triangle_based_prism(true,
-		{ 1.0f, 0.f }, { 0.f, 0.f }, { -1.f, 1.f },
+	auto wingTriangleBasedPrism2 = make_triangle_based_prism(true,
+		{ 1.5f, 0.f }, { 0.f, 0.f }, { 0.f, 1.f },
 		0.05f, aColorWings,
-		make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, 1.75f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
+		make_rotation_x(std::numbers::pi_v<float>) * make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, -0.5f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
 	);
-	rocketData = concatenate(std::move(rocketData), standTriangleBasedPrism);
 
-	// Other 3 created by matrix calculation
-	for (int standNum = 0; standNum < 3; standNum++)
+	rocketData = concatenate(std::move(mainBodyCylinder), spaceshipNoseCone);
+	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism1);
+	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism2);
+
+
+	//// Loop through the original positions and apply matrix
+	//for (auto& pos : wingTriangleBasedPrism.positions) {
+	//	// Transform the position with the rotation matrix
+	//	Vec4f transformedPos = make_rotation_x(std::numbers::pi_v<float>) * Vec4f{ pos.x, pos.y, pos.z, 1.f };
+
+	//	// Replace the current position with the transformed position
+	//	pos = Vec3f{ transformedPos.x, transformedPos.y, transformedPos.z };
+	//}
+	
+
+
+
+	//// Create 4 rocket holder stands
+	//auto standTriangleBasedPrism = make_triangle_based_prism(true,
+	//	{ 1.0f, 0.f }, { 0.f, 0.f }, { -1.f, 1.f },
+	//	0.05f, aColorWings,
+	//	make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, 1.75f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
+	//);
+	//rocketData = concatenate(std::move(rocketData), standTriangleBasedPrism);
+
+	SimpleMeshData standTriangleBasedPrism;
+
+	// 4 stands created by 4 calls to func
+	for (int standNum = 0; standNum < 4; standNum++)
 	{
-		// Loop through the original positions and apply matrix
-		for (auto& pos : standTriangleBasedPrism.positions) {
-			// Transform the position with the rotation matrix
-			Vec4f transformedPos = make_rotation_x(std::numbers::pi_v<float>/2.f) * Vec4f { pos.x, pos.y, pos.z, 1.f };
+		auto standTriangleBasedPrism = make_triangle_based_prism(true,
+			{ 1.0f, 0.f }, { 0.f, 0.f }, { -1.f, 1.f },
+			0.05f, aColorWings,
+			make_rotation_x(standNum* std::numbers::pi_v<float> / 2.f) * make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, 1.75f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
+		);
 
-			// Replace the current position with the transformed position
-			pos = Vec3f{ transformedPos.x, transformedPos.y, transformedPos.z };
-		}
 		rocketData = concatenate(std::move(rocketData), standTriangleBasedPrism);
 	}
 	
@@ -104,11 +116,23 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
     for (auto& p : rocketData.positions)
     {
         Vec4f p4{ p.x, p.y, p.z, 1.f };
-        Vec4f t = aPreTransform * make_rotation_z(std::numbers::pi_v<float> / 2.f) * p4;
+        Vec4f t = aPreTransform * p4;
         t /= t.w;
 
         p = Vec3f{ t.x, t.y, t.z };
     }
+
+	for (auto& n : rocketData.normals)
+	{
+		// Transform the normal using N (inverse transpose of the transformation matrix)
+		Vec3f transformedNormal = N * n;
+
+		// Normalize the transformed normal
+		transformedNormal = normalize(transformedNormal);
+
+		// Assign the normalized normal back
+		n = transformedNormal;
+	}
 
     rocketData.isTextureSupplied = isTextureSupplied;
 

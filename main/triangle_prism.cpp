@@ -49,12 +49,22 @@ SimpleMeshData make_triangle_based_prism(
     // Back face
     data.positions.insert(data.positions.end(), { v1_back, v3_back, v2_back }); // Note reversed order for correct winding
     data.normals.insert(data.normals.end(), { back_normal, back_normal, back_normal });
+    
+    // Calculate side face normals
+    // Side 1
+    Vec3f side1_edge1 = v2_front - v1_front;
+    Vec3f side1_edge2 = v1_back - v1_front;
+    Vec3f side1_normal = normalize(N * cross(side1_edge2, side1_edge1)); // Swapped order
 
-    // Side faces
-    // Calculate normal for each side face using cross product
-    Vec3f side1_normal = normalize(N * cross(v2_front - v1_front, Vec3f{ 1.0f, 0.0f, 0.0f }));
-    Vec3f side2_normal = normalize(N * cross(v3_front - v2_front, Vec3f{ 1.0f, 0.0f, 0.0f }));
-    Vec3f side3_normal = normalize(N * cross(v1_front - v3_front, Vec3f{ 1.0f, 0.0f, 0.0f }));
+    // Side 2
+    Vec3f side2_edge1 = v3_front - v2_front;
+    Vec3f side2_edge2 = v2_back - v2_front;
+    Vec3f side2_normal = normalize(N * cross(side2_edge2, side2_edge1)); // Swapped order
+
+    // Side 3
+    Vec3f side3_edge1 = v1_front - v3_front;
+    Vec3f side3_edge2 = v3_back - v3_front;
+    Vec3f side3_normal = normalize(N * cross(side3_edge2, side3_edge1)); // Swapped order
 
     // Side 1
     data.positions.insert(data.positions.end(), { v1_front, v1_back, v2_front });

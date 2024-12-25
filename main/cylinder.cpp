@@ -77,6 +77,18 @@ SimpleMeshData make_cylinder(bool aCapped, std::size_t aSubdivs, Vec3f aColor, M
         p = Vec3f{ t.x, t.y, t.z };
     }
 
+    for (auto& n : data.normals)
+    {
+        // Transform the normal using N (inverse transpose of the transformation matrix)
+        Vec3f transformedNormal = N * n;
+
+        // Normalize the transformed normal
+        transformedNormal = normalize(transformedNormal);
+
+        // Assign the normalized normal back
+        n = transformedNormal;
+    }
+
     data.colors.assign(data.positions.size(), aColor);
 
     return data;
