@@ -98,7 +98,8 @@ namespace
 			float acceleration = rocketAcceleration_;                   // Acceleration factor
 			float time = 0.0f;                           // Time for curved path calculation
 			bool isMoving = false;                       // Movement state
-			float rotationAngle = 0.0f;                  // Rotation angle for animation
+			float pitch = 0.f;       
+			float yaw = 0.f; // Rotation angle for animation
 
 
 			void reset() {
@@ -107,7 +108,8 @@ namespace
 				acceleration = rocketAcceleration_;
 				time = 0.0f;
 				isMoving = false;
-				rotationAngle = 0.0f;
+				pitch = 0.0f;
+				yaw = 0.0f;
 			}
 		} rcktCtrl;
 	};
@@ -370,7 +372,13 @@ int main() try
 		// Map Rocket model to world
 		// TODO: CHANGE THIS WHEN CONSTRUCTING ANIMATION TO REFLECT UPDATED POS OF ROCKET
 		//Mat44f model2worldRocket = kIdentity44f;
-		Mat44f model2worldRocket = make_translation(state.rcktCtrl.position);
+		Mat44f rotationY = make_rotation_y(state.rcktCtrl.yaw);   // Yaw (around Y-axis)
+		Mat44f rotationX = make_rotation_x(state.rcktCtrl.pitch); // Pitch (around X-axis)
+
+		// Combine rotations: Apply pitch first, then yaw.
+		Mat44f finalRotation = kIdentity44f; //= rotationY * rotationX;
+
+		Mat44f model2worldRocket = finalRotation * make_translation(state.rcktCtrl.position);
 			
 		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(model2worldRocket)));
 		Mat44f projCameraWorldRocket = projection * world2camera * model2worldRocket;
@@ -691,13 +699,18 @@ namespace
 			}
 
 			// Update rotation angle to face the direction of motion
-			rocket.rotationAngle = atan2(direction.x, direction.z);  // Yaw rotation around the Y-axis
+			rocket.yaw = atan2(direction.x, direction.z);  // Yaw rotation around the Y-axis
+			if (rocket.time > 5) {
+				rocket.yaw -= M_PI;
+			}
+			rocket.pitch = atan2(direction.y, sqrt(direction.x * direction.x + direction.z * direction.z)) - M_PI/2;
+
 
 			// Debug output for verification
 			printf("Rocket Time: %f\n", rocket.time);
 			printf("Position: (%f, %f, %f)\n", rocket.position.x, rocket.position.y, rocket.position.z);
 			printf("Velocity: (%f, %f, %f)\n", rocket.velocity.x, rocket.velocity.y, rocket.velocity.z);
-			printf("Rotation Angle (Yaw): %f radians\n", rocket.rotationAngle);
+			printf("Rotation Angle (Yaw): %f radians (Pitch): %f radians\n", rocket.yaw, rocket.pitch);
 		}
 	}
 }
