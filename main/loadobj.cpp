@@ -8,7 +8,7 @@
 #include "../vmlib/vec2.hpp"
 
 
-SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
+SimpleMeshData load_wavefront_obj(char const* aPath, bool isTextureSupplied, Mat44f aPreTransform)
 {
     // Load the OBJ file
     auto result = rapidobj::ParseFile(aPath);
@@ -67,11 +67,17 @@ SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
                 ret.texcoords.emplace_back(Vec2f{ texX, texZ });
             }
 
-            // Add color (all white)
-            ret.colors.emplace_back(Vec3f{ 1.f, 1.f, 1.f });
+            
 
             // Get material for current face
             auto const& mat = result.materials[shape.mesh.material_ids[i / 3]];
+
+            // Add color (all white)
+            ret.colors.emplace_back(Vec3f{
+                mat.ambient[0],
+                mat.ambient[1],
+                mat.ambient[2]
+               });
 
             // Add ambient (Ka), diffuse (Kd), specular (Ks), and emission (Ke)
             // Ambient saved as colours
@@ -118,6 +124,19 @@ SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
     ret.diffs = Vec2f{ diffX, diffZ };
 
     std::cout << ret.positions.size() << std::endl;
+
+    ret.isTextureSupplied = isTextureSupplied;
+
+    // Transform positions by aPreTransform
+    for (auto& p : ret.positions)
+    {
+        Vec4f p4{ p.x, p.y, p.z, 1.f };
+        Vec4f t = aPreTransform * p4;
+        t /= t.w;
+
+        p = Vec3f{ t.x, t.y, t.z };
+    }
+
     return ret;
 }
 

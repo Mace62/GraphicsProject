@@ -1,4 +1,4 @@
-#include <glad/glad.h>
+﻿#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <numbers>
@@ -24,6 +24,12 @@
 #include "defaults.hpp"
 #include "loadobj.hpp"
 #include "texture.hpp"
+#include "spaceship.hpp"
+
+//TODO: REMOVE THIS
+#include "triangle_prism.hpp"
+
+#define M_PI 3.14159265358979323846
 
 
 #if defined(_WIN32) // alternative: #if defined(_MSC_VER)
@@ -39,6 +45,7 @@ const std::string DIR_PATH = std::filesystem::current_path().string();
 
 const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj";
 const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
+const std::string LAUNCHPAD_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/landingpad.obj";
 
 
 
@@ -55,9 +62,9 @@ namespace
 
 		struct CamCtrl_
 		{
-			float FAST_SPEED_MULT = 4.f;
+			float FAST_SPEED_MULT = 2.f;
 			float SLOW_SPEED_MULT = 0.1f;
-			float NORMAL_SPEED_MULT = 1.f;
+			float NORMAL_SPEED_MULT = 0.5f;
 
 			bool movingForward = false;
 			bool movingBack = false;
@@ -232,44 +239,59 @@ int main() try
 	OGL_CHECKPOINT_ALWAYS();
 	
 	// Load Langerso mesh
-	auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str());
+	auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str(), true);
 	GLuint langersoVao = create_vao(langersoMesh);
 	GLuint langersoTextureObjectId = load_texture_2d(LANGERSO_TEXTURE_ASSET_PATH.c_str());
 	std::size_t langersoVertexCount = langersoMesh.positions.size();
 
-	OGL_CHECKPOINT_ALWAYS();
+	// Load launchpad mesh
+	auto launchpadMesh = load_wavefront_obj(LAUNCHPAD_OBJ_ASSET_PATH.c_str(), false,
+		make_translation({ 2.f, 0.005f, -2.f }) * make_scaling(0.5f, 0.5f, 0.5f)
+	);
+	GLuint launchpadVao = create_vao(launchpadMesh);
+	std::size_t launchpadVertexCount = launchpadMesh.positions.size();
 
-	// Main loop
-	while( !glfwWindowShouldClose( window ) )
-	{
-		// Let GLFW process events
-		glfwPollEvents();
-		
-		// Check if window was resized.
-		float fbwidth, fbheight;
-		{
-			int nwidth, nheight;
-			glfwGetFramebufferSize( window, &nwidth, &nheight );
+	// Load rocket mesh
+    auto rocketMesh = create_spaceship(32,			// Subdivs
+		{0.2f, 0.2f, 0.2f}, {1.f, 0.2f, 0.2f},		// Colours for rocket body and fins
+		make_translation({ 2.f, 0.15f, -2.f }) * make_scaling(0.05f, 0.05f, 0.05f), 		// Pretransform matrix
+		false
+	);
+    GLuint rocketVao = create_vao(rocketMesh);
+    std::size_t rocketVertexCount = rocketMesh.positions.size();
 
-			fbwidth = float(nwidth);
-			fbheight = float(nheight);
+    OGL_CHECKPOINT_ALWAYS();
 
-			if( 0 == nwidth || 0 == nheight )
-			{
-				// Window minimized? Pause until it is unminimized.
-				// This is a bit of a hack.
-				do
-				{
-					glfwWaitEvents();
-					glfwGetFramebufferSize( window, &nwidth, &nheight );
-				} while( 0 == nwidth || 0 == nheight );
-			}
+    // Main loop
+    while (!glfwWindowShouldClose(window))
+    {
+        // Let GLFW process events
+        glfwPollEvents();
 
-			glViewport( 0, 0, nwidth, nheight );
-		}
+        // Check if window was resized.
+        float fbwidth, fbheight;
+        {
+            int nwidth, nheight;
+            glfwGetFramebufferSize(window, &nwidth, &nheight);
+
+            fbwidth = float(nwidth);
+            fbheight = float(nheight);
+
+            if (0 == nwidth || 0 == nheight)
+            {
+                // Window minimized? Pause until it is unminimized.
+                do
+                {
+                    glfwWaitEvents();
+                    glfwGetFramebufferSize(window, &nwidth, &nheight);
+                } while (0 == nwidth || 0 == nheight);
+            }
+
+            glViewport(0, 0, nwidth, nheight);
+        }
 
 		// Update state
-		//TODO: update state
+		//TODO: update state of rocket
 		auto const now = Clock::now();
 		float dt = std::chrono::duration_cast<Secondsf>(now - last).count();
 		last = now;
@@ -295,6 +317,7 @@ int main() try
 			0.1f, 100.0f                              // Near and far planes
 		);
 
+
 		// Update camera position with new FPS camera system
 		updateCamera(state.camControl, dt);
 
@@ -305,12 +328,27 @@ int main() try
 			state.camControl.up
 		);
 
-		// Map model to world
-		Mat44f model2world = kIdentity44f;
+		// Map Langerso model to world
+		Mat44f model2worldLangerso = kIdentity44f;
+		Mat33f normalMatrixLangerso = mat44_to_mat33(transpose(invert(model2worldLangerso)));
+		Mat44f projCameraWorldLangerso = projection * world2camera * model2worldLangerso;
 
-		Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
+		// Map Launcpad 1 model to world
+		Mat44f model2worldLaunchpad1 = kIdentity44f;
+		Mat33f normalMatrixLaunchpad1 = mat44_to_mat33(transpose(invert(model2worldLaunchpad1)));
+		Mat44f projCameraWorldLaunchpad1 = projection * world2camera * model2worldLaunchpad1;
 
-		Mat44f projCameraWorldLangerso = projection * world2camera * model2world;
+		// Map Launcpad 1 model to world
+		Mat44f model2worldLaunchpad2 = make_translation({ 3.f, 0.f, -5.f });
+		Mat33f normalMatrixLaunchpad2 = mat44_to_mat33(transpose(invert(model2worldLaunchpad2)));
+		Mat44f projCameraWorldLaunchpad2 = projection * world2camera * model2worldLaunchpad2;
+
+
+		// Map Rocket model to world
+		// TODO: CHANGE THIS WHEN CONSTRUCTING ANIMATION TO REFLECT UPDATED POS OF ROCKET
+		Mat44f model2worldRocket = kIdentity44f;
+		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(model2worldRocket)));
+		Mat44f projCameraWorldRocket = projection * world2camera * model2worldRocket;
 
 
 		// Draw scene
@@ -322,18 +360,6 @@ int main() try
 		// We want to draw with our program.
 		glUseProgram(prog.programId());
 
-		// Parse Normalisation matrix to vertex shader
-		glUniformMatrix3fv(
-			1, // make sure this matches the location = N in the vertex shader!
-			1, GL_TRUE, normalMatrix.v
-		);
-
-		// Parse Normalisation matrix to vertex shader
-		glUniformMatrix3fv(
-			1, // make sure this matches the location = N in the vertex shader!
-			1, GL_TRUE, normalMatrix.v
-		);
-
 		// Task 2 general light dir requirement (needs to be applied to ALL objects)
 		Vec3f lightDir = normalize(Vec3f{ 0.f, 1.f, -1.f });
 
@@ -341,9 +367,18 @@ int main() try
 		glUniform3f(3, 0.678f, 0.847f, 0.902f);	// Apply diffuse vec (light blue tint)
 		glUniform3f(4, 0.05f, 0.05f, 0.05f);	// Apply scene ambience vec
 
+
+		/*	FOR SCENE MESH	*/
+		// Parse Normalisation matrix to vertex shader for langerso model
+		glUniformMatrix3fv(
+			1, // make sure this matches the location = N in the vertex shader!
+			1, GL_TRUE, normalMatrixLangerso.v
+		);
+
+		// Bind textures
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, langersoTextureObjectId);
-		glUniform1i(5, 1);
+		glUniform1i(5, langersoMesh.isTextureSupplied);
 
 		// Give min and dims of the mesh to align tex coords with mesh 
 		glUniform2f(6, langersoMesh.mins.x, langersoMesh.mins.y);
@@ -354,7 +389,55 @@ int main() try
 		glBindVertexArray(langersoVao);
 		glDrawArrays(GL_TRIANGLES, 0, langersoVertexCount);
 
-		OGL_CHECKPOINT_DEBUG();
+		// Unbind and reset texture to stop it being applied to other models
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+
+
+		/*	FOR ROCKET MESH	*/
+		// Parse Normalisation matrix to vertex shader for rocket
+		glUniformMatrix3fv(
+			1, // make sure this matches the location = N in the vertex shader!
+			1, GL_TRUE, normalMatrixRocket.v
+		);
+
+		// Draw rocket
+		glUniform1i(5, rocketMesh.isTextureSupplied);
+        glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldRocket.v);
+        glBindVertexArray(rocketVao);
+        glDrawArrays(GL_TRIANGLES, 0, rocketVertexCount);
+
+
+
+		/*	FOR LAUNCHPAD MESH	*/
+		// Parse Normalisation matrix to vertex shader for launchpad 1
+		glUniformMatrix3fv(
+			1, // make sure this matches the location = N in the vertex shader!
+			1, GL_TRUE, normalMatrixLaunchpad1.v
+		);
+
+		// Draw launchpad 1
+		glUniform1i(5, launchpadMesh.isTextureSupplied);
+		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad1.v);
+		glBindVertexArray(launchpadVao);
+		glDrawArrays(GL_TRIANGLES, 0, launchpadVertexCount);
+
+
+		// Parse Normalisation matrix to vertex shader for launchpad 2
+		glUniformMatrix3fv(
+			1, // make sure this matches the location = N in the vertex shader!
+			1, GL_TRUE, normalMatrixLaunchpad2.v
+		);
+
+		// Draw launchpad 1
+		glUniform1i(5, launchpadMesh.isTextureSupplied);
+		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad2.v);
+		glBindVertexArray(launchpadVao);
+		glDrawArrays(GL_TRIANGLES, 0, launchpadVertexCount);
+
+
+
+        OGL_CHECKPOINT_DEBUG();
 
 		// Display results
 		glfwSwapBuffers( window );
@@ -411,18 +494,6 @@ namespace
 					}
 				}
 			}
-
-			// Changed to right click toggles camera
-			//// Space toggles camera
-			//if (GLFW_KEY_SPACE == aKey && GLFW_PRESS == aAction)
-			//{
-			//	state->camControl.cameraActive = !state->camControl.cameraActive;
-
-			//	if (state->camControl.cameraActive)
-			//		glfwSetInputMode(aWindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-			//	else
-			//		glfwSetInputMode(aWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-			//}
 
 			// Handle WASD keys
 			if (GLFW_KEY_W == aKey)
@@ -511,7 +582,7 @@ namespace
 		}
 	}
 
-	// Add this function to update camera position based on movement
+	// Function to update camera position based on movement
 	void updateCamera(State_::CamCtrl_& camera, float dt)
 	{
 		// Calculate movement speed
@@ -556,6 +627,7 @@ namespace
 		camera.position = camera.position + movement;
 	}
 }
+
 
 namespace
 {

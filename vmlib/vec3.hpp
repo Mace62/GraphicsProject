@@ -144,4 +144,14 @@ Vec3f normalize( Vec3f aVec ) noexcept
 	return aVec / l;
 }
 
+inline
+Vec3f cross(const Vec3f& a, const Vec3f& b) noexcept 
+{
+	return Vec3f{
+		a.y * b.z - a.z * b.y, // x-component
+		a.z * b.x - a.x * b.z, // y-component
+		a.x * b.y - a.y * b.x  // z-component
+	};
+}
+
 #endif // VEC3_HPP_5710DADF_17EF_453C_A9C8_4A73DC66B1CD
