@@ -1,5 +1,38 @@
 #include "simple_mesh.hpp"
 
+SimpleMeshData concatenate(SimpleMeshData aM, const SimpleMeshData& aN) {
+    // Concatenate vertex positions
+    aM.positions.insert(aM.positions.end(), aN.positions.begin(), aN.positions.end());
+
+    // Concatenate normals
+    aM.normals.insert(aM.normals.end(), aN.normals.begin(), aN.normals.end());
+
+    // Concatenate colours
+    aM.colors.insert(aM.colors.end(), aN.colors.begin(), aN.colors.end());
+
+    // Concatenate texture coordinates
+    aM.texcoords.insert(aM.texcoords.end(), aN.texcoords.begin(), aN.texcoords.end());
+
+    // Concatenate material properties
+    aM.Ka.insert(aM.Ka.end(), aN.Ka.begin(), aN.Ka.end());
+    aM.Kd.insert(aM.Kd.end(), aN.Kd.begin(), aN.Kd.end());
+    aM.Ks.insert(aM.Ks.end(), aN.Ks.begin(), aN.Ks.end());
+    aM.Ns.insert(aM.Ns.end(), aN.Ns.begin(), aN.Ns.end());
+    aM.Ke.insert(aM.Ke.end(), aN.Ke.begin(), aN.Ke.end());
+
+    // Handle mins and diffs
+    // Combine mins and diffs by calculating the bounding range for texture coordinates
+    aM.mins.x = std::min(aM.mins.x, aN.mins.x);
+    aM.mins.y = std::min(aM.mins.y, aN.mins.y);
+    aM.diffs.x = std::max(aM.diffs.x, aN.diffs.x);
+    aM.diffs.y = std::max(aM.diffs.y, aN.diffs.y);
+
+    return aM;
+}
+
+
+
+
 GLuint create_vao(SimpleMeshData const& aMeshData)
 {
     GLuint positionVBO = 0;

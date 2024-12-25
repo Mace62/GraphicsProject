@@ -55,7 +55,7 @@ void main()
 	// oColor = texture( uTexture, v2fTexCoord ).rgb;		// For texturing only
 
 
-	// oColor = normal;		// Use this as a debug method to visualise normals as colours 
+	 //oColor = normal;		// Use this as a debug method to visualise normals as colours 
 
 	// oColor = vec3(v2fTexCoord[0], v2fTexCoord[1], 0.0);		// Use this as a debug to visualise texture co-ords as colours 
 	

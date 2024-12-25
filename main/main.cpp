@@ -24,12 +24,15 @@
 #include "defaults.hpp"
 #include "loadobj.hpp"
 #include "texture.hpp"
+#include "spaceship.hpp"
+
+//TODO: REMOVE THIS
+#include "triangle_prism.hpp"
 
 #define M_PI 3.14159265358979323846
 
 
-#if defined(_WIN32) // alternative: ”#if defined(_MSC_VER)”
-
+#if defined(_WIN32) // alternative: #if defined(_MSC_VER)
 extern "C"
 {
 	__declspec(dllexport) unsigned long NvOptimusEnablement = 1;
@@ -249,6 +252,21 @@ int main() try
 	GLuint langersoTextureObjectId = load_texture_2d(LANGERSO_TEXTURE_ASSET_PATH.c_str());
 	std::size_t langersoVertexCount = langersoMesh.positions.size();
 
+
+    // TEST CODE:
+    //auto testPrism = make_triangle_based_prism(
+    //    false,
+    //    Vec2f {2.f, 0.f}, Vec2f {0.f, 0.f}, Vec2f {0.f, 2.f},		// Flat x and y co-ords only
+    //    5.f,						// Determines z value
+    //    { 1.f, 1.f, 1.f },
+    //    make_translation({0.f, 5.f, 0.f})
+    //);
+
+    auto testRocket = create_spaceship();
+
+    GLuint testVao = create_vao(testRocket);
+    std::size_t testCount = testRocket.positions.size();
+
     // Load the spaceship
     GLuint spaceshipVao, spaceshipVbo, spaceshipEbo;
     std::size_t spaceshipIndexCount;
@@ -451,9 +469,9 @@ int main() try
 
 
 		// Pass matrices to shaders
-		glUniformMatrix4fv(modelLoc, 1, GL_TRUE, model.v);
-		glUniformMatrix4fv(viewLoc, 1, GL_TRUE, view.v);
-		glUniformMatrix4fv(projectionLoc, 1, GL_TRUE, projection.v);
+		//glUniformMatrix4fv(modelLoc, 1, GL_TRUE, model.v);
+		//glUniformMatrix4fv(viewLoc, 1, GL_TRUE, view.v);
+		//glUniformMatrix4fv(projectionLoc, 1, GL_TRUE, projection.v);
 
 
 		glActiveTexture(GL_TEXTURE0);
@@ -466,16 +484,23 @@ int main() try
 
 
 		// Draw scene
-		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
+		/*glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
 		glBindVertexArray(langersoVao);
-		glDrawArrays(GL_TRIANGLES, 0, langersoVertexCount);
+		glDrawArrays(GL_TRIANGLES, 0, langersoVertexCount);*/
 
 		glBindVertexArray(spaceshipVao);
 		glDrawElements(GL_TRIANGLES, spaceshipIndexCount, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 
+        glUniform1i(5, 0);
 
-		OGL_CHECKPOINT_DEBUG();
+
+        glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
+        glBindVertexArray(testVao);
+        glDrawArrays(GL_TRIANGLES, 0, testCount);
+
+
+        OGL_CHECKPOINT_DEBUG();
 
 		// Display results
 		glfwSwapBuffers( window );

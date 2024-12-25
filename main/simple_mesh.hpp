@@ -11,8 +11,8 @@
 struct SimpleMeshData {
     std::vector<Vec3f> positions;  // Vertex positions
     std::vector<Vec3f> normals;    // Vertex normals
-    std::vector<Vec2f> texcoords;  // Texture coordinates
     std::vector<Vec3f> colors;     // Material color (diffuse)
+    std::vector<Vec2f> texcoords;  // Texture coordinates
     std::vector<Vec3f> Ka;         // Ambient reflectivity
     std::vector<Vec3f> Kd;         // Diffuse reflectivity
     std::vector<Vec3f> Ks;         // Specular reflectivity
