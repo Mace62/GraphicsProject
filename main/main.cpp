@@ -57,7 +57,7 @@ namespace
 	constexpr float kMovementPerSecond_ = 5.f; // units per second
 	constexpr float kMouseSensitivity_ = 0.01f; // radians per pixel
 
-	constexpr float rocketAcceleration_ = 0.01f;
+	constexpr float rocketAcceleration_ = 0.1f;
 
 	struct State_
 	{
@@ -99,7 +99,8 @@ namespace
 			float acceleration = rocketAcceleration_;                   // Acceleration factor
 			float time = 0.0f;                           // Time for curved path calculation
 			bool isMoving = false;                       // Movement state
-			float pitch = 0.f;       
+			float pitch = 0.f;
+			float yaw = 0.f;
 
 			void reset() {
 				position = rocketStartPos;
@@ -672,19 +673,30 @@ namespace
 
 			rocket.time += dt;
 
-			// Update velocity with smaller acceleration
-			rocket.velocity.y += rocket.acceleration * rocket.time * 0.01;
-			if (rocket.time > 5) {
-				rocket.velocity.x += rocket.acceleration * (rocket.time-5) * 0.5;
-				rocket.velocity.z = -0.01f * dt;
-			}
-			
+			// Define the direction vector for the rocket's motion after 5 seconds
+			Vec3f newDirection = normalize(Vec3f(3.0f, 1.0f, -3.5f)); // Example direction vector (change as needed)
 
-			// Update position for curved path with smaller values
-			rocket.position.y += rocket.velocity.y * dt;   
-			rocket.position.x += rocket.velocity.x * 0.2 * dt;
-			rocket.position.z += rocket.velocity.z;
-			
+			// Initialize the acceleration vector based on the time elapsed
+			Vec3f accelerationVector;
+
+			if (rocket.time <= 5.0f) {
+				// For the first 5 seconds, only the y-component of acceleration is set to 2
+				accelerationVector = normalize(Vec3f(0.0f, 1.0f, 0.0f));
+			}
+			else {
+				// After 5 seconds, scale the direction vector by the desired acceleration magnitude
+				accelerationVector = newDirection * rocket.acceleration;
+			}
+
+			// Update velocity with the calculated acceleration components
+			rocket.velocity.x += accelerationVector.x * dt;
+			rocket.velocity.y += accelerationVector.y * dt;
+			rocket.velocity.z += accelerationVector.z * dt;
+
+			// Update position based on the velocity
+			rocket.position.x += rocket.velocity.x * dt;
+			rocket.position.y += rocket.velocity.y * dt;
+			rocket.position.z += rocket.velocity.z * dt;
 
 			// Calculate the direction of motion
 			Vec3f direction = {
@@ -693,23 +705,45 @@ namespace
 				rocket.position.z - previousPosition.z
 			};
 
-			// Normalize the direction vector to prevent errors when calculating the rotation
+			// Normalize the direction vector to prevent errors when calculating rotation
 			if (length(direction) > 0.001f) {
 				direction = normalize(direction);
 			}
 
-			rocket.pitch = atan2(direction.y, sqrt(direction.x * direction.x + direction.z * direction.z)) - M_PI/2;
+			// Assume the rocket moves primarily along the y-axis (forward direction)
+			Vec3f rocketForward = Vec3f(0.0f, 1.0f, 0.0f);
 
-			Mat44f rotationMatrix = make_rotation_z(rocket.pitch);
-			model2worldRocket = make_translation(rocket.position) * rotationMatrix;
+			// Calculate pitch: angle between the forward direction and the direction vector
+			float pitch = atan2(direction.z, sqrt(direction.x * direction.x + direction.y * direction.y));
+
+			// Calculate yaw: angle in the x-y plane
+			float yaw = atan2(direction.x, direction.y);
+
+			// Debug pitch and yaw for verification
+			printf("Pitch: %f radians\n", pitch);
+			printf("Yaw: %f radians\n", yaw);
+
+			// Create rotation matrices for pitch and yaw
+			Mat44f rotationMatrixPitch = make_rotation_x(pitch); // Pitch around X-axis
+			Mat44f rotationMatrixYaw = make_rotation_z(-yaw);     // Yaw around Z-axis
+
+			// Combine rotations in the correct order (YPR)
+			Mat44f rotationMatrix = rotationMatrixYaw * rotationMatrixPitch;
+
+			// Translate the rocket to its current position
+			Mat44f translationMatrix = make_translation(rocket.position);
+
+			// Combine translation and rotation into the final model-to-world matrix
+			model2worldRocket = translationMatrix * rotationMatrix;
 
 			// Debug output for verification
 			printf("Rocket Time: %f\n", rocket.time);
 			printf("Position: (%f, %f, %f)\n", rocket.position.x, rocket.position.y, rocket.position.z);
 			printf("Velocity: (%f, %f, %f)\n", rocket.velocity.x, rocket.velocity.y, rocket.velocity.z);
-			printf("Rotation Angle (Pitch): %f radians\n", rocket.pitch);
+			printf("Direction: (%f, %f, %f)\n", direction.x, direction.y, direction.z);
 		}
 	}
+
 }
 
 
