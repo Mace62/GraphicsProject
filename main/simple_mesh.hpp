@@ -20,6 +20,7 @@ struct SimpleMeshData {
     std::vector<Vec3f> Ke;         // Emission
     Vec2f mins;                    // Min tex coord for normalization
     Vec2f diffs;                   // Tex coord diff for normalization
+    bool isTextureSupplied = false;
 };
 
 

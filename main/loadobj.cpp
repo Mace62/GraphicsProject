@@ -8,7 +8,7 @@
 #include "../vmlib/vec2.hpp"
 
 
-SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
+SimpleMeshData load_wavefront_obj(char const* aPath, bool isTextureSupplied, Mat44f aPreTransform)
 {
     // Load the OBJ file
     auto result = rapidobj::ParseFile(aPath);
@@ -118,6 +118,9 @@ SimpleMeshData load_wavefront_obj(char const* aPath, Mat44f aPreTransform)
     ret.diffs = Vec2f{ diffX, diffZ };
 
     std::cout << ret.positions.size() << std::endl;
+
+    ret.isTextureSupplied = isTextureSupplied;
+
     return ret;
 }
 

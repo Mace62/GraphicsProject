@@ -12,6 +12,8 @@
 
 
 SimpleMeshData create_spaceship(std::size_t aSubdivs = 32, Vec3f aColorMainBody = {1.f, 1.f, 1.f}, 
-	Vec3f aColorWings = { 0.f, 0.f, 0.f }, Mat44f aPreTransform = kIdentity44f);
+	Vec3f aColorWings = { 0.f, 0.f, 0.f }, Mat44f aPreTransform = kIdentity44f,
+	bool isTextureSupplied = false
+);
 
 #endif // SPACESHIP_LOADER_HPP
