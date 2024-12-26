@@ -2,7 +2,17 @@
 
 #include <numbers>
 
-SimpleMeshData make_cone(bool aCapped, std::size_t aSubdivs, Vec3f aColor, Mat44f aPreTransform) {
+SimpleMeshData make_cone(
+    bool aCapped,
+    std::size_t aSubdivs,
+    Vec3f aColor,
+    Mat44f aPreTransform,
+    Vec3f aKa,
+    Vec3f aKd,
+    Vec3f aKs,
+    float aNs,
+    Vec3f aKe
+) {
     SimpleMeshData data{};
     float prevY = std::cos(0.f);
     float prevZ = std::sin(0.f);
@@ -71,8 +81,16 @@ SimpleMeshData make_cone(bool aCapped, std::size_t aSubdivs, Vec3f aColor, Mat44
         p = Vec3f{ t.x, t.y, t.z };
     }
 
-    // Add colours
+    // Add colors
     data.colors.assign(data.positions.size(), aColor);
+
+    // Add material properties
+    data.Ka.assign(data.positions.size(), aKa);
+    data.Kd.assign(data.positions.size(), aKd);
+    data.Ks.assign(data.positions.size(), aKs);
+    data.Ns.assign(data.positions.size(), aNs);
+    data.Ke.assign(data.positions.size(), aKe);
+
     return data;
 }
 
