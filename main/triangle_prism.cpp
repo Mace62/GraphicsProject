@@ -8,7 +8,12 @@ SimpleMeshData make_triangle_based_prism(
     Vec2f p1, Vec2f p2, Vec2f p3,
     float depth,
     Vec3f aColor,
-    Mat44f aPreTransform
+    Mat44f aPreTransform,
+    Vec3f aKa,
+    Vec3f aKd,
+    Vec3f aKs,
+    float aNs,
+    Vec3f aKe
 ) {
     SimpleMeshData data{};
 
@@ -49,12 +54,22 @@ SimpleMeshData make_triangle_based_prism(
     // Back face
     data.positions.insert(data.positions.end(), { v1_back, v3_back, v2_back }); // Note reversed order for correct winding
     data.normals.insert(data.normals.end(), { back_normal, back_normal, back_normal });
+    
+    // Calculate side face normals
+    // Side 1
+    Vec3f side1_edge1 = v2_front - v1_front;
+    Vec3f side1_edge2 = v1_back - v1_front;
+    Vec3f side1_normal = normalize(N * cross(side1_edge2, side1_edge1)); // Swapped order
 
-    // Side faces
-    // Calculate normal for each side face using cross product
-    Vec3f side1_normal = normalize(N * cross(v2_front - v1_front, Vec3f{ 1.0f, 0.0f, 0.0f }));
-    Vec3f side2_normal = normalize(N * cross(v3_front - v2_front, Vec3f{ 1.0f, 0.0f, 0.0f }));
-    Vec3f side3_normal = normalize(N * cross(v1_front - v3_front, Vec3f{ 1.0f, 0.0f, 0.0f }));
+    // Side 2
+    Vec3f side2_edge1 = v3_front - v2_front;
+    Vec3f side2_edge2 = v2_back - v2_front;
+    Vec3f side2_normal = normalize(N * cross(side2_edge2, side2_edge1)); // Swapped order
+
+    // Side 3
+    Vec3f side3_edge1 = v1_front - v3_front;
+    Vec3f side3_edge2 = v3_back - v3_front;
+    Vec3f side3_normal = normalize(N * cross(side3_edge2, side3_edge1)); // Swapped order
 
     // Side 1
     data.positions.insert(data.positions.end(), { v1_front, v1_back, v2_front });
@@ -84,6 +99,13 @@ SimpleMeshData make_triangle_based_prism(
 
     // Add colors
     data.colors.assign(data.positions.size(), aColor);
+
+    // Add material properties
+    data.Ka.assign(data.positions.size(), aKa);
+    data.Kd.assign(data.positions.size(), aKd);
+    data.Ks.assign(data.positions.size(), aKs);
+    data.Ns.assign(data.positions.size(), aNs);
+    data.Ke.assign(data.positions.size(), aKe);
 
     return data;
 }

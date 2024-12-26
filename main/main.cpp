@@ -26,9 +26,6 @@
 #include "texture.hpp"
 #include "spaceship.hpp"
 
-//TODO: REMOVE THIS
-#include "triangle_prism.hpp"
-
 #define M_PI 3.14159265358979323846
 
 
@@ -47,7 +44,7 @@ const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj
 const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
 const std::string LAUNCHPAD_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/landingpad.obj";
 
-
+const int MAX_POINT_LIGHTS = 3;
 
 namespace
 {
@@ -89,6 +86,20 @@ namespace
 			float lastX, lastY;
 			float lastTheta;
 		} camControl;
+
+		// Array to hold multiple point lights
+		struct PointLight {
+			Vec3f position;
+			float radius;
+			Vec3f color;
+			float padding1;     // For std140 alignment
+			
+		} pointLights;  // Array of 3 point lights
+
+		struct PointLightBlock {
+			PointLight lights[MAX_POINT_LIGHTS];
+		};
+
 	};
 
 	void glfw_callback_error_(int, char const*);
@@ -97,6 +108,8 @@ namespace
 	void glfw_callback_motion_(GLFWwindow*, double, double);
 	void mouse_button_callback(GLFWwindow* aWindow, int button, int action, int mods);
 	void updateCamera(State_::CamCtrl_& camera, float dt);
+
+	void setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS]);
 
 	struct GLFWCleanupHelper
 	{
@@ -253,12 +266,16 @@ int main() try
 
 	// Load rocket mesh
     auto rocketMesh = create_spaceship(32,			// Subdivs
-		{0.2f, 0.2f, 0.2f}, {1.f, 0.2f, 0.2f},		// Colours for rocket body and fins
+		{0.2f, 0.2f, 0.2f}, {0.8f, 0.2f, 0.2f},		// Colours for rocket body and fins
 		make_translation({ 2.f, 0.15f, -2.f }) * make_scaling(0.05f, 0.05f, 0.05f), 		// Pretransform matrix
 		false
 	);
     GLuint rocketVao = create_vao(rocketMesh);
     std::size_t rocketVertexCount = rocketMesh.positions.size();
+
+	// Set point lights
+	State_::PointLight pointLights[3];
+	setPointLights(pointLights, rocketMesh.pointLightsPos);
 
     OGL_CHECKPOINT_ALWAYS();
 
@@ -429,7 +446,7 @@ int main() try
 			1, GL_TRUE, normalMatrixLaunchpad2.v
 		);
 
-		// Draw launchpad 1
+		// Draw launchpad 2
 		glUniform1i(5, launchpadMesh.isTextureSupplied);
 		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad2.v);
 		glBindVertexArray(launchpadVao);
@@ -625,6 +642,42 @@ namespace
 
 		// Update position
 		camera.position = camera.position + movement;
+	}
+
+	void setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS]) 
+	{
+		// Update point light data
+		pointLights[0].position = pointLightPos[0];
+		pointLights[0].radius = 0.05f;
+		pointLights[0].color = Vec3f{ 1.f, 0.f, 0.f }; // Red
+
+		pointLights[1].position = pointLightPos[1];
+		pointLights[1].radius = 0.05f;
+		pointLights[1].color = Vec3f{ 0.f, 1.f, 0.f }; // Green
+
+		pointLights[2].position = pointLightPos[2];
+		pointLights[2].radius = 0.05f;
+		pointLights[2].color = Vec3f{ 0.f, 0.f, 1.f }; // Blue
+		//pointLights[2].color = Vec3f{ 0.6863f, 0.3686f, 0.1843f }; // Fiery Orange
+
+		// Create the UBO
+		GLuint pointLightUBO;
+		glGenBuffers(1, &pointLightUBO);
+		glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(State_::PointLightBlock), nullptr, GL_DYNAMIC_DRAW);
+
+		// Map data to UBO
+		State_::PointLightBlock pointLightData; 
+		for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
+			pointLightData.lights[i] = pointLights[i];
+		}
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(State_::PointLightBlock), &pointLightData);
+
+		// Bind the UBO to binding point 1 (matches the shader's `binding = 1`)
+		glBindBufferBase(GL_UNIFORM_BUFFER, 1, pointLightUBO);
+
+		// Unbind the buffer (optional but good practice)
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
 }
 

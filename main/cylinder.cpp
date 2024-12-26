@@ -2,7 +2,17 @@
 
 #include <numbers>
 
-SimpleMeshData make_cylinder(bool aCapped, std::size_t aSubdivs, Vec3f aColor, Mat44f aPreTransform)
+SimpleMeshData make_cylinder(
+    bool aCapped,
+    std::size_t aSubdivs,
+    Vec3f aColor,
+    Mat44f aPreTransform,
+    Vec3f aKa,
+    Vec3f aKd,
+    Vec3f aKs,
+    float aNs,
+    Vec3f aKe
+) 
 {
     SimpleMeshData data{};
 
@@ -77,7 +87,15 @@ SimpleMeshData make_cylinder(bool aCapped, std::size_t aSubdivs, Vec3f aColor, M
         p = Vec3f{ t.x, t.y, t.z };
     }
 
+    // Add colors
     data.colors.assign(data.positions.size(), aColor);
+
+    // Add material properties
+    data.Ka.assign(data.positions.size(), aKa);
+    data.Kd.assign(data.positions.size(), aKd);
+    data.Ks.assign(data.positions.size(), aKs);
+    data.Ns.assign(data.positions.size(), aNs);
+    data.Ke.assign(data.positions.size(), aKe);
 
     return data;
 }
