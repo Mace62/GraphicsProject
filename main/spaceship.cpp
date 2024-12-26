@@ -135,18 +135,28 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	std::cout << "Max values: (" << maxVals.x << ", " << maxVals.y << ", " << maxVals.z << ") at position (" << maxPos.x << ", " << maxPos.y << ", " << maxPos.z << ")" << std::endl;
 
 	// Add point lights
-	rocketData.pointLightsPos[0] = Vec3f{ 0.53f, 0.f, 0.53f };			// Going to side of craft
-	rocketData.pointLightsPos[1] = mat44_to_mat33(make_rotation_x(std::numbers::pi_v<float>)) * rocketData.pointLightsPos[0];			// Going to opposite side of craft
-	rocketData.pointLightsPos[2] = Vec3f { 3.2f, 0.f, 0.f };			// Going to thruster
+	rocketData.pointLightPos[0] = Vec3f{ 0.53f, 0.f, 0.53f };			// Going to side of craft
+	rocketData.pointLightPos[1] = mat44_to_mat33(make_rotation_x(std::numbers::pi_v<float>)) * rocketData.pointLightPos[0];			// Going to opposite side of craft
+	rocketData.pointLightPos[2] = Vec3f{ 3.2f, 0.f, 0.f };			// Going to thruster
 
 	// Scale point lights according to pretransform matrix
-	for (auto& lp : rocketData.pointLightsPos)
+	for (auto& lp : rocketData.pointLightPos)
 	{
 		Vec4f p4{ lp.x, lp.y, lp.z, 1.f };
 		Vec4f t = aPreTransform * p4;
 		t /= t.w;
 
 		lp = Vec3f{ t.x, t.y, t.z };
+	}
+
+	// Add point light normals
+	rocketData.pointLightNorms[0] = Vec3f{ 1.f, 0.f, 0.53f };			// Going to side of craft
+	rocketData.pointLightNorms[1] = mat44_to_mat33(make_rotation_y(std::numbers::pi_v<float>)) * rocketData.pointLightPos[0];			// Going to opposite side of craft
+	rocketData.pointLightNorms[2] = Vec3f{ 3.2f, 0.f, 0.f };			// Going to thruster
+
+	// For directions/orientations
+	for (int i = 0; i < 3; i++) {
+		rocketData.pointLightNorms[i] = normalize(N * rocketData.pointLightPos[i]);
 	}
 
     rocketData.isTextureSupplied = isTextureSupplied;

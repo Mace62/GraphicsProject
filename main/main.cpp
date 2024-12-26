@@ -92,12 +92,13 @@ namespace
 
 		// Array to hold multiple point lights
 		struct PointLight {
-			Vec3f position;
-			float radius;
-			Vec3f color;
-			float padding1;     // For std140 alignment
-			
-		} pointLights;  // Array of 3 point lights
+			Vec3f position;    // vec3
+			float padding1;    // 4 bytes of padding for std140 alignment
+			Vec3f color;       // vec3
+			float padding2;    // 4 bytes of padding for std140 alignment
+			Vec3f normals;     // vec3
+			float radius;      // float, aligned to 4 bytes
+		};
 
 		struct PointLightBlock {
 			PointLight lights[MAX_POINT_LIGHTS];
@@ -112,6 +113,9 @@ namespace
 			bool isMoving = false;                       // Movement state
 			float pitch = 0.f;
 			float yaw = 0.f;
+
+			Mat44f translationMatrix;
+			Mat44f rotation;
 
 			void reset() {
 				model2worldRocket = kIdentity44f;
@@ -133,8 +137,8 @@ namespace
 	void updateCamera(State_::CamCtrl_& camera, float dt);
 	void updateRocket(State_::rcktCtrl_& rocket, float dt);
 
-	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS]);
-	void updatePointLights(Mat44f rocketPosition, Vec3f pointLightPos[MAX_POINT_LIGHTS], State_::PointLight pointLights[MAX_POINT_LIGHTS]);
+	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos);
+	void updatePointLights(Mat44f rocketPosition, SimpleMeshData rocketPos, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
 	void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
 
 	struct GLFWCleanupHelper
@@ -293,15 +297,15 @@ int main() try
 	// Load rocket mesh
     auto rocketMesh = create_spaceship(32,			// Subdivs
 		{0.2f, 0.2f, 0.2f}, {0.8f, 0.2f, 0.2f},		// Colours for rocket body and fins
-		make_translation({ 2.f, 0.15f, -2.f }) * make_scaling(0.05f, 0.05f, 0.05f), 		// Pretransform matrix
+		make_translation({ 2.f, 0.15f, -2.f }) * make_scaling(0.05f, 0.05f, 0.05f),		// Pretransform matrix
 		false
 	);
     GLuint rocketVao = create_vao(rocketMesh);
     std::size_t rocketVertexCount = rocketMesh.positions.size();
 
 	// Set point lights
-	State_::PointLight pointLights[3];
-	GLuint pointLightUBO = setPointLights(pointLights, rocketMesh.pointLightsPos);
+	State_::PointLight pointLights[MAX_POINT_LIGHTS];
+	GLuint pointLightUBO = setPointLights(pointLights, rocketMesh);
 
     OGL_CHECKPOINT_ALWAYS();
 
@@ -389,20 +393,10 @@ int main() try
 
 
 		// Map Rocket model to world
-		// TODO: CHANGE THIS WHEN CONSTRUCTING ANIMATION TO REFLECT UPDATED POS OF ROCKET
-		//Mat44f model2worldRocket = kIdentity44f;
-		//Mat44f rotationY = make_rotation_y(state.rcktCtrl.yaw);   // Yaw (around Y-axis)
-		//Mat44f rotationX = make_rotation_x(state.rcktCtrl.pitch); // Pitch (around X-axis)
-
-		//// Combine rotations: Apply pitch first, then yaw.
-		//Mat44f finalRotation = kIdentity44f; //= rotationY * rotationX;
-
-		/*Mat44f model2worldRocket = finalRotation * make_translation(state.rcktCtrl.position);*/
-
 		updateRocket(state.rcktCtrl, dt);
 
 		// Update point light positions
-		updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh.pointLightsPos, pointLights);
+		updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh, pointLights);
 
 		// Update the UBO with the new point light data
 		updatePointLightUBO(pointLightUBO, pointLights);
@@ -690,67 +684,99 @@ namespace
 		camera.position = camera.position + movement;
 	}
 
-	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS])
+	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos)
 	{
-		// Update point light data
-		pointLights[0].position = pointLightPos[0];
-		pointLights[0].radius = 0.05f;
+		// Update point light data with larger radius values
+		pointLights[0].position = rocketPos.pointLightPos[0];
+		pointLights[0].radius = 1.0f;        // Increased radius significantly
 		pointLights[0].color = Vec3f{ 1.f, 0.f, 0.f }; // Red
+		pointLights[0].normals = rocketPos.pointLightNorms[0];
 
-		pointLights[1].position = pointLightPos[1];
-		pointLights[1].radius = 0.05f;
+		pointLights[1].position = rocketPos.pointLightPos[1];
+		pointLights[1].radius = 1.0f;
 		pointLights[1].color = Vec3f{ 0.f, 1.f, 0.f }; // Green
+		pointLights[1].normals = rocketPos.pointLightNorms[1];
 
-		pointLights[2].position = pointLightPos[2];
-		pointLights[2].radius = 0.05f;
+		pointLights[2].position = rocketPos.pointLightPos[2];
+		pointLights[2].radius = 1.0f;
 		pointLights[2].color = Vec3f{ 0.f, 0.f, 1.f }; // Blue
-		//pointLights[2].color = Vec3f{ 0.6863f, 0.3686f, 0.1843f }; // Fiery Orange
+		pointLights[2].normals = rocketPos.pointLightNorms[2];
 
-		// Create the UBO
+		for (size_t i = 0; i < MAX_POINT_LIGHTS; ++i) 
+		{ 
+			std::cout << "Point Light " << i << " Position: ("
+				<< pointLights[i].position.x << ", " 
+				<< pointLights[i].position.y << ", "
+				<< pointLights[i].position.z << ")\n"; 
+		}
+
+		// Create and setup UBO
 		GLuint pointLightUBO;
 		glGenBuffers(1, &pointLightUBO);
 		glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(State_::PointLightBlock), nullptr, GL_DYNAMIC_DRAW);
 
-		// Map data to UBO
-		State_::PointLightBlock pointLightData; 
+		// Allocate and initialize buffer in one step
+		State_::PointLightBlock pointLightData;
 		for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
 			pointLightData.lights[i] = pointLights[i];
 		}
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(State_::PointLightBlock), &pointLightData);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(State_::PointLightBlock), &pointLightData, GL_STATIC_DRAW);
 
-		// Bind the UBO to binding point 1 (matches the shader's `binding = 1`)
+		// Bind to uniform buffer binding point
 		glBindBufferBase(GL_UNIFORM_BUFFER, 1, pointLightUBO);
-
-		// Unbind the buffer (optional but good practice)
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 		return pointLightUBO;
 	}
 
-	void updatePointLights(Mat44f rocketPosition, Vec3f pointLightPos[MAX_POINT_LIGHTS], State_::PointLight pointLights[MAX_POINT_LIGHTS]) 
+	void updatePointLights(Mat44f rocketPosition, SimpleMeshData rocketData, State_::PointLight pointLights[MAX_POINT_LIGHTS])
 	{
-		for (int i = 0; i < MAX_POINT_LIGHTS; ++i) 
+		Mat33f const N = mat44_to_mat33(transpose(invert(rocketPosition)));
+		for (int i = 0; i < MAX_POINT_LIGHTS; ++i)
 		{
-			// Convert Vec3f to Vec4f with w = 1.0 (homogeneous coordinates)
-			Vec4f transformedPos = rocketPosition * Vec4f{ pointLightPos[i].x, pointLightPos[i].y, pointLightPos[i].z, 1.0f };
+			// Transform light positions with rocket matrix
+			Vec4f transformedPos = rocketPosition * Vec4f{ rocketData.pointLightPos[i].x, rocketData.pointLightPos[i].y, rocketData.pointLightPos[i].z, 1.0f };
+			Vec3f transformedNorm = normalize(N * rocketData.pointLightNorms[i]);
 
-			// Convert back to Vec3f (ignore w, assuming no perspective transform)
-			pointLights[i].position = Vec3f{ transformedPos.x, transformedPos.y, transformedPos.z };
+			pointLights[i].position = rocketData.pointLightPos[i];
+			pointLights[i].normals = transformedNorm;
+
+			//std::cout << "Before - Position: (" << rocketData.pointLightPos[i].x << ", " << rocketData.pointLightPos[i].y << ", " << rocketData.pointLightPos[i].z << ")" << ", Normal: (" << rocketData.pointLightNorms[i].x << ", " << rocketData.pointLightNorms[i].y << ", " << rocketData.pointLightNorms[i].z << ")\n"; std::cout << "After - Position: (" << transformedPos.x << ", " << transformedPos.y << ", " << transformedPos.z << ")" << ", Normal: (" << transformedNorm.x << ", " << transformedNorm.y << ", " << transformedNorm.z << ")\n";
+
+			// Maintain other properties that were set in setPointLights
+			if (i == 0) {
+				pointLights[i].color = Vec3f{ 1.f, 0.f, 0.f }; // Red
+			}
+			else if (i == 1) {
+				pointLights[i].color = Vec3f{ 0.f, 1.f, 0.f }; // Green
+			}
+			else {
+				pointLights[i].color = Vec3f{ 0.f, 0.f, 1.f }; // Blue
+			}
+			pointLights[i].radius = 1.0f;
 		}
 	}
 
-	void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS]) 
+	void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS])
 	{
 		State_::PointLightBlock pointLightData;
 		for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
 			pointLightData.lights[i] = pointLights[i];
 		}
 
-		// Bind and update the UBO
+		for (size_t i = 0; i < MAX_POINT_LIGHTS; ++i)
+		{
+			std::cout << "Point Light " << i << " Position: ("
+				<< pointLights[i].position.x << ", "
+				<< pointLights[i].position.y << ", "
+				<< pointLights[i].position.z << ")\n";
+		}
+
+
+		// Update the buffer without recreating it
 		glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(State_::PointLightBlock), nullptr, GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);  // Unbind after updating
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(State_::PointLightBlock), &pointLightData);
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
 
 	void updateRocket(State_::rcktCtrl_& rocket, float dt) {
@@ -821,7 +847,7 @@ namespace
 			Mat44f translationMatrix = make_translation(rocket.position);
 
 			// Combine translation and rotation into the final model-to-world matrix
-			rocket.model2worldRocket = rotationMatrix;
+			rocket.model2worldRocket = translationMatrix * rotationMatrix;
 
 			// Debug output for verification
 			printf("Rocket Time: %f\n", rocket.time);
