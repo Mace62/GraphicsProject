@@ -18,9 +18,9 @@ SimpleMeshData make_triangle_based_prism(
     Vec3f aColor = { 1.f, 1.f, 1.f },
     Mat44f aPreTransform = kIdentity44f,
     Vec3f aKa = { 0.2f, 0.2f, 0.2f },       // Ambient reflectivity
-    Vec3f aKd = { 0.5f, 0.0f, 0.0f },       // Diffuse reflectivity (red for the wing)
+    Vec3f aKd = { 0.5f, 0.5f, 0.5f },       // Diffuse reflectivity (red for the wing)
     Vec3f aKs = { 0.2f, 0.2f, 0.2f },       // Specular reflectivity
-    float aNs = 15.f,                       // Shininess
+    float aNs = 100.f,                       // Shininess
     Vec3f aKe = { 0.f, 0.f, 0.f }           // Emission
 );
 

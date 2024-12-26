@@ -17,7 +17,7 @@ SimpleMeshData make_truncated_ovoid(
     float bottomCutoff,
     Vec3f aColor = { 1.f, 1.f, 1.f },
     Mat44f aPreTransform = kIdentity44f,
-    Vec3f aKa = { 0.2f, 0.2f, 0.2f },       // Ambient reflectivity
+    Vec3f aKa = { 0.5f, 0.5f, 0.5f },       // Ambient reflectivity
     Vec3f aKd = { 0.8f, 0.8f, 0.8f },       // Diffuse reflectivity (silver)
     Vec3f aKs = { 0.6f, 0.6f, 0.6f },       // Specular reflectivity (shiny metal)
     float aNs = 50.f,                       // Shininess

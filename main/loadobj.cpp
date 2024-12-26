@@ -38,10 +38,10 @@ SimpleMeshData load_wavefront_obj(char const* aPath, bool isTextureSupplied, Mat
             auto const& idx = shape.mesh.indices[i];
 
             // Add vertex position
-            Vec3f position = mat44_to_mat33(aPreTransform) * Vec3f {
+            Vec3f position = Vec3f {
                 result.attributes.positions[idx.position_index * 3 + 0],
-                    result.attributes.positions[idx.position_index * 3 + 1],
-                    result.attributes.positions[idx.position_index * 3 + 2]
+                result.attributes.positions[idx.position_index * 3 + 1],
+                result.attributes.positions[idx.position_index * 3 + 2]
             };
             ret.positions.emplace_back(position);
 
@@ -51,14 +51,12 @@ SimpleMeshData load_wavefront_obj(char const* aPath, bool isTextureSupplied, Mat
             minZ = std::min(minZ, position.z);
             maxZ = std::max(maxZ, position.z);
 
-            // Add normal if present
-            if (idx.normal_index >= 0) {
-                ret.normals.emplace_back(N * Vec3f{
-                    result.attributes.normals[idx.normal_index * 3 + 0],
-                    result.attributes.normals[idx.normal_index * 3 + 1],
-                    result.attributes.normals[idx.normal_index * 3 + 2]
-                    });
-            }
+            // Add normals
+            ret.normals.emplace_back(Vec3f{
+                result.attributes.normals[idx.normal_index * 3 + 0],
+                result.attributes.normals[idx.normal_index * 3 + 1],
+                result.attributes.normals[idx.normal_index * 3 + 2]
+            });
 
             // Add texture coordinates if present
             if (idx.texcoord_index >= 0) {
@@ -135,6 +133,18 @@ SimpleMeshData load_wavefront_obj(char const* aPath, bool isTextureSupplied, Mat
         t /= t.w;
 
         p = Vec3f{ t.x, t.y, t.z };
+    }
+
+    for (auto& n : ret.normals)
+    {
+        // Transform the normal using N (inverse transpose of the transformation matrix)
+        Vec3f transformedNormal = N * n;
+
+        // Normalize the transformed normal
+        transformedNormal = normalize(transformedNormal);
+
+        // Assign the normalized normal back
+        n = transformedNormal;
     }
 
     return ret;

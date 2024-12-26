@@ -49,7 +49,7 @@ SimpleMeshData make_truncated_ovoid(
                     verticalScale * std::cos(phi),
                     std::sin(phi) * std::sin(theta)
                 };
-                };
+            };
 
             auto calcNormal = [verticalScale, &N](float phi, float theta) -> Vec3f {
                 // For an ovoid, we need to adjust the normal based on the vertical scaling
@@ -59,7 +59,7 @@ SimpleMeshData make_truncated_ovoid(
                     std::sin(phi) * std::sin(theta)
                 };
                 return normalize(N * normalize(normal));
-                };
+            };
 
             // Calculate four corners of the quad
             Vec3f v1 = calcVertex(phi1, theta1);
