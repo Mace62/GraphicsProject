@@ -114,6 +114,7 @@ namespace
 			float yaw = 0.f;
 
 			void reset() {
+				model2worldRocket = kIdentity44f;
 				position = rocketStartPos;
 				velocity = { 0.0f, 0.0f, 0.0f };
 				acceleration = rocketAcceleration_;
@@ -527,7 +528,7 @@ namespace
 		{
 			// Start rocket animation with 'F'
 			if (GLFW_KEY_F == aKey && GLFW_PRESS == aAction) {
-				state->rcktCtrl.isMoving = true;
+				state->rcktCtrl.isMoving = !state->rcktCtrl.isMoving;
 			}
 			// R-key reloads shaders.
 			if (GLFW_KEY_R == aKey && GLFW_PRESS == aAction)
@@ -592,8 +593,6 @@ namespace
 					state->camControl.speed_multiplier = state->camControl.NORMAL_SPEED_MULT; // Reset to normal speed when released
 				}
 			}
-
-
 		}
 	}
 
