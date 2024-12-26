@@ -87,13 +87,8 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	
     rocketData = concatenate(std::move(rocketData), nozzle);
 
-	// Loop through and set each vector to zero
+	// Set tex coords to 0
 	rocketData.texcoords.assign(rocketData.positions.size(), Vec2f{ 0.f, 0.f });
-	rocketData.Ka.assign(rocketData.positions.size(), Vec3f{ 0.f, 0.f, 0.f });
-	rocketData.Kd.assign(rocketData.positions.size(), Vec3f{ 0.f, 0.f, 0.f });
-	rocketData.Ks.assign(rocketData.positions.size(), Vec3f{ 0.f, 0.f, 0.f });
-	rocketData.Ns.assign(rocketData.positions.size(), 0.f);
-	rocketData.Ke.assign(rocketData.positions.size(), Vec3f{ 0.f, 0.f, 0.f });
 
 	// Set mins and diffs to zero
 	rocketData.mins = Vec2f{ 0.f, 0.f };

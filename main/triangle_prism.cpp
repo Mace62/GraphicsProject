@@ -8,7 +8,12 @@ SimpleMeshData make_triangle_based_prism(
     Vec2f p1, Vec2f p2, Vec2f p3,
     float depth,
     Vec3f aColor,
-    Mat44f aPreTransform
+    Mat44f aPreTransform,
+    Vec3f aKa,
+    Vec3f aKd,
+    Vec3f aKs,
+    float aNs,
+    Vec3f aKe
 ) {
     SimpleMeshData data{};
 
@@ -84,6 +89,13 @@ SimpleMeshData make_triangle_based_prism(
 
     // Add colors
     data.colors.assign(data.positions.size(), aColor);
+
+    // Add material properties
+    data.Ka.assign(data.positions.size(), aKa);
+    data.Kd.assign(data.positions.size(), aKd);
+    data.Ks.assign(data.positions.size(), aKs);
+    data.Ns.assign(data.positions.size(), aNs);
+    data.Ke.assign(data.positions.size(), aKe);
 
     return data;
 }

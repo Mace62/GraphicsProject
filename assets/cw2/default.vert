@@ -36,8 +36,8 @@ void main()
     v2fNormal = normalize(uNormalMatrix * iNormal);
 
     // Normalize the x and z positions to [0, 1] based on terrain dimensions
-    float u = (iPosition.x - uMin.x) / uDiff.x;
-    float v = (iPosition.z - uMin.y) / uDiff.y;
+    float u = uDiff.x != 0.0 ? (iPosition.x - uMin.x) / uDiff.x : 0.0;
+    float v = uDiff.y != 0.0 ? (iPosition.z - uMin.y) / uDiff.y : 0.0;
 
     // Assign the normalized values to texture coordinates
     v2fTexCoord = vec2(u, v);

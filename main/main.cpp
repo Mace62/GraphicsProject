@@ -429,7 +429,7 @@ int main() try
 			1, GL_TRUE, normalMatrixLaunchpad2.v
 		);
 
-		// Draw launchpad 1
+		// Draw launchpad 2
 		glUniform1i(5, launchpadMesh.isTextureSupplied);
 		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad2.v);
 		glBindVertexArray(launchpadVao);
