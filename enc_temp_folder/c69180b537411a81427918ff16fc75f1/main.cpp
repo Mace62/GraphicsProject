@@ -649,7 +649,7 @@ namespace
 		// Update point light data
 		pointLights[0].position = pointLightPos[0];
 		pointLights[0].radius = 0.05f;
-		pointLights[0].color = Vec3f{ 1.f, 0.f, 0.f }; // Red
+		pointLights[0].color = Vec3f{ 1.f, 0.f, 0.f }; // White
 
 		pointLights[1].position = pointLightPos[1];
 		pointLights[1].radius = 0.05f;
@@ -657,7 +657,7 @@ namespace
 
 		pointLights[2].position = pointLightPos[2];
 		pointLights[2].radius = 0.05f;
-		pointLights[2].color = Vec3f{ 0.f, 0.f, 1.f }; // Blue
+		pointLights[2].color = Vec3f{ 0.f, 0.f, 1.f }; // Fiery Orange
 		//pointLights[2].color = Vec3f{ 0.6863f, 0.3686f, 0.1843f }; // Fiery Orange
 
 		// Create the UBO
