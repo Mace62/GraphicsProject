@@ -642,13 +642,7 @@ namespace
 
 	void setPointLights(State_::PointLight pointLights[3], Mat44f aPreTransform)
 	{
-		//pointLights[0].position = Vec3f{ 0.f, -2.5f, 0.f };			// Going 
-		//pointLights[0].radius = 0.5f;
-		//pointLights[0].color = Vec3f{ 0.761f, 0.345f, 0.067f };		//Fiery orange
-
-		pointLights[0].position = Vec3f{ 1.5f, 1.f, 0.f };			// Going 
-		pointLights[0].radius = 0.5f;
-		pointLights[0].color = Vec3f{ 0.761f, 0.345f, 0.067f };		//Fiery orange
+		pointLights[0].position;
 	}
 }
 

@@ -7,6 +7,7 @@
 #include "simple_mesh.hpp"
 
 #include <numbers>
+#include <iostream>
 
 
 SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3f aColorWings, Mat44f aPreTransform, bool isTextureSupplied)
@@ -87,7 +88,7 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	
     rocketData = concatenate(std::move(rocketData), nozzle);
 
-	// Set tex coords to 0
+	// Set tex coords t
 	rocketData.texcoords.assign(rocketData.positions.size(), Vec2f{ 0.f, 0.f });
 
 	// Set mins and diffs to zero
@@ -104,6 +105,32 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 
         p = Vec3f{ t.x, t.y, t.z };
     }
+
+	// Initialize min and max values to extreme values
+Vec3f minVals{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+Vec3f maxVals{ std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest() };
+
+// Initialize variables to store the positions corresponding to min and max values
+Vec3f minPos, maxPos;
+
+// DEBUGGER LOOP
+for (auto& p : rocketData.positions)
+{
+    // Update min and max values for each component, and store the corresponding position
+    if (p.x < minVals.x) { minVals.x = p.x; minPos = p; }
+    if (p.y < minVals.y) { minVals.y = p.y; minPos = p; }
+    if (p.z < minVals.z) { minVals.z = p.z; minPos = p; }
+
+    if (p.x > maxVals.x) { maxVals.x = p.x; maxPos = p; }
+    if (p.y > maxVals.y) { maxVals.y = p.y; maxPos = p; }
+    if (p.z > maxVals.z) { maxVals.z = p.z; maxPos = p; }
+}
+
+// After the loop, minVals and maxVals contain the min and max values for x, y, and z
+std::cout << "Min values: (" << minVals.x << ", " << minVals.y << ", " << minVals.z << ") at position (" << minPos.x << ", " << minPos.y << ", " << minPos.z << ")" << std::endl;
+std::cout << "Max values: (" << maxVals.x << ", " << maxVals.y << ", " << maxVals.z << ") at position (" << maxPos.x << ", " << maxPos.y << ", " << maxPos.z << ")" << std::endl;
+
+
 
     rocketData.isTextureSupplied = isTextureSupplied;
 
