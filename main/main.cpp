@@ -133,7 +133,9 @@ namespace
 	void updateCamera(State_::CamCtrl_& camera, float dt);
 	void updateRocket(State_::rcktCtrl_& rocket, float dt);
 
-	void setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS]);
+	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS]);
+	void updatePointLights(Mat44f rocketPosition, Vec3f pointLightPos[MAX_POINT_LIGHTS], State_::PointLight pointLights[MAX_POINT_LIGHTS]);
+	void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
 
 	struct GLFWCleanupHelper
 	{
@@ -299,7 +301,7 @@ int main() try
 
 	// Set point lights
 	State_::PointLight pointLights[3];
-	setPointLights(pointLights, rocketMesh.pointLightsPos);
+	GLuint pointLightUBO = setPointLights(pointLights, rocketMesh.pointLightsPos);
 
     OGL_CHECKPOINT_ALWAYS();
 
@@ -368,6 +370,8 @@ int main() try
 			state.camControl.up
 		);
 
+		
+
 		// Map Langerso model to world
 		Mat44f model2worldLangerso = kIdentity44f;
 		Mat33f normalMatrixLangerso = mat44_to_mat33(transpose(invert(model2worldLangerso)));
@@ -396,6 +400,12 @@ int main() try
 		/*Mat44f model2worldRocket = finalRotation * make_translation(state.rcktCtrl.position);*/
 
 		updateRocket(state.rcktCtrl, dt);
+
+		// Update point light positions
+		updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh.pointLightsPos, pointLights);
+
+		// Update the UBO with the new point light data
+		updatePointLightUBO(pointLightUBO, pointLights);
 			
 		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(state.rcktCtrl.model2worldRocket)));
 		Mat44f projCameraWorldRocket = projection * world2camera * state.rcktCtrl.model2worldRocket;
@@ -680,7 +690,7 @@ namespace
 		camera.position = camera.position + movement;
 	}
 
-	void setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS]) 
+	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS])
 	{
 		// Update point light data
 		pointLights[0].position = pointLightPos[0];
@@ -714,6 +724,33 @@ namespace
 
 		// Unbind the buffer (optional but good practice)
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+		return pointLightUBO;
+	}
+
+	void updatePointLights(Mat44f rocketPosition, Vec3f pointLightPos[MAX_POINT_LIGHTS], State_::PointLight pointLights[MAX_POINT_LIGHTS]) 
+	{
+		for (int i = 0; i < MAX_POINT_LIGHTS; ++i) 
+		{
+			// Convert Vec3f to Vec4f with w = 1.0 (homogeneous coordinates)
+			Vec4f transformedPos = rocketPosition * Vec4f{ pointLightPos[i].x, pointLightPos[i].y, pointLightPos[i].z, 1.0f };
+
+			// Convert back to Vec3f (ignore w, assuming no perspective transform)
+			pointLights[i].position = Vec3f{ transformedPos.x, transformedPos.y, transformedPos.z };
+		}
+	}
+
+	void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS]) 
+	{
+		State_::PointLightBlock pointLightData;
+		for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
+			pointLightData.lights[i] = pointLights[i];
+		}
+
+		// Bind and update the UBO
+		glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(State_::PointLightBlock), nullptr, GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);  // Unbind after updating
 	}
 
 	void updateRocket(State_::rcktCtrl_& rocket, float dt) {
@@ -784,7 +821,7 @@ namespace
 			Mat44f translationMatrix = make_translation(rocket.position);
 
 			// Combine translation and rotation into the final model-to-world matrix
-			rocket.model2worldRocket = translationMatrix * rotationMatrix;
+			rocket.model2worldRocket = rotationMatrix;
 
 			// Debug output for verification
 			printf("Rocket Time: %f\n", rocket.time);
