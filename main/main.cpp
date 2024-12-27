@@ -764,13 +764,14 @@ namespace
 			pointLightData.lights[i] = pointLights[i];
 		}
 
-		for (size_t i = 0; i < MAX_POINT_LIGHTS; ++i)
+		// Debugging
+		/*for (size_t i = 0; i < MAX_POINT_LIGHTS; ++i)
 		{
 			std::cout << "Point Light " << i << " Position: ("
 				<< pointLights[i].position.x << ", "
 				<< pointLights[i].position.y << ", "
 				<< pointLights[i].position.z << ")\n";
-		}
+		}*/
 
 
 		// Update the buffer without recreating it
@@ -833,8 +834,8 @@ namespace
 			float yaw = atan2(direction.x, direction.y);
 
 			// Debug pitch and yaw for verification
-			printf("Pitch: %f radians\n", pitch);
-			printf("Yaw: %f radians\n", yaw);
+			/*printf("Pitch: %f radians\n", pitch);
+			printf("Yaw: %f radians\n", yaw);*/
 
 			// Create rotation matrices for pitch and yaw
 			Mat44f rotationMatrixPitch = make_rotation_x(pitch); // Pitch around X-axis
@@ -850,10 +851,10 @@ namespace
 			rocket.model2worldRocket = translationMatrix * rotationMatrix;
 
 			// Debug output for verification
-			printf("Rocket Time: %f\n", rocket.time);
+			/*printf("Rocket Time: %f\n", rocket.time);
 			printf("Position: (%f, %f, %f)\n", rocket.position.x, rocket.position.y, rocket.position.z);
 			printf("Velocity: (%f, %f, %f)\n", rocket.velocity.x, rocket.velocity.y, rocket.velocity.z);
-			printf("Direction: (%f, %f, %f)\n", direction.x, direction.y, direction.z);
+			printf("Direction: (%f, %f, %f)\n", direction.x, direction.y, direction.z);*/
 		}
 	}
 
