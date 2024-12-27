@@ -56,9 +56,18 @@ namespace
 
 	constexpr float rocketAcceleration_ = 0.1f;
 
+
+	enum class CameraMode {
+		FREE = 0,
+		CHASE,
+		GROUND
+	};
+
 	struct State_
 	{
 		ShaderProgram* prog;
+
+		CameraMode currentCameraMode = CameraMode::FREE;
 
 		struct CamCtrl_
 		{
@@ -127,6 +136,9 @@ namespace
 				pitch = 0.0f;
 			}
 		} rcktCtrl;
+
+		float chaseDistance = 3.0f;    // distance behind the rocket
+		Vec3f groundCameraPos = { -5.f, 1.0f, 0.f }; // chosen ground location
 	};
 
 	void glfw_callback_error_(int, char const*);
@@ -134,12 +146,14 @@ namespace
 	void glfw_callback_key_(GLFWwindow*, int, int, int, int);
 	void glfw_callback_motion_(GLFWwindow*, double, double);
 	void mouse_button_callback(GLFWwindow* aWindow, int button, int action, int mods);
+
 	void updateCamera(State_::CamCtrl_& camera, float dt);
 	void updateRocket(State_::rcktCtrl_& rocket, float dt);
 
 	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos);
 	void updatePointLights(Mat44f rocketPosition, SimpleMeshData rocketPos, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
 	void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
+
 
 	struct GLFWCleanupHelper
 	{
@@ -364,15 +378,12 @@ int main() try
 		);
 
 
-		// Update camera position with new FPS camera system
+		// Always update the FREE camera’s internal orientation, even if it’s not currently in FREE mode.
+		// (So when the user returns to FREE mode, the orientation is up-to-date.)
 		updateCamera(state.camControl, dt);
 
-		// Calculate new view matrix using look_at func
-		Mat44f world2camera = make_look_at(
-			state.camControl.position,
-			state.camControl.position + state.camControl.forward,
-			state.camControl.up
-		);
+		Mat44f world2camera = compute_view_matrix(state);
+
 
 		
 
@@ -386,7 +397,7 @@ int main() try
 		Mat33f normalMatrixLaunchpad1 = mat44_to_mat33(transpose(invert(model2worldLaunchpad1)));
 		Mat44f projCameraWorldLaunchpad1 = projection * world2camera * model2worldLaunchpad1;
 
-		// Map Launcpad 1 model to world
+		// Map Launcpad 2 model to world
 		Mat44f model2worldLaunchpad2 = make_translation({ 3.f, 0.f, -5.f });
 		Mat33f normalMatrixLaunchpad2 = mat44_to_mat33(transpose(invert(model2worldLaunchpad2)));
 		Mat44f projCameraWorldLaunchpad2 = projection * world2camera * model2worldLaunchpad2;
@@ -530,6 +541,23 @@ namespace
 
 		if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow)))
 		{
+			// Press 'C' to cycle cameras
+			if (aKey == GLFW_KEY_C && aAction == GLFW_PRESS)
+			{
+				switch (state->currentCameraMode)
+				{
+				case CameraMode::FREE:
+					state->currentCameraMode = CameraMode::CHASE;
+					break;
+				case CameraMode::CHASE:
+					state->currentCameraMode = CameraMode::GROUND;
+					break;
+				case CameraMode::GROUND:
+					state->currentCameraMode = CameraMode::FREE;
+					break;
+				}
+			}
+
 			// Start rocket animation with 'F'
 			if (GLFW_KEY_F == aKey && GLFW_PRESS == aAction) {
 				state->rcktCtrl.isMoving = !state->rcktCtrl.isMoving;
@@ -780,6 +808,71 @@ namespace
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
 
+
+	Mat44f compute_view_matrix(State_ const& state)
+	{
+		switch (state.currentCameraMode)
+		{
+			// (1) Free camera
+		case CameraMode::FREE:
+		{
+			auto const& cam = state.camControl;
+			return make_look_at(
+				cam.position,
+				cam.position + cam.forward,
+				cam.up
+			);
+		}
+
+		// (2) Chase camera
+		case CameraMode::CHASE:
+		{
+			// Chase from behind the rocket at a fixed distance
+			auto const& rocketPos = state.rcktCtrl.position;
+
+
+			Vec3f rocketForwardWS = { 0.f, 0.f, -1.f };
+
+			// Position the chase camera behind and slightly above rocket
+			Vec3f chaseCamPos = rocketPos - rocketForwardWS * state.chaseDistance + Vec3f{ 0.f, 1.f, 0.f };
+			Vec4f chaseCamPos4 = { chaseCamPos.x, chaseCamPos.y, chaseCamPos.z, 1.f };
+
+			// Look towards rocket
+			Vec4f rocketPos4 = { rocketPos.x, rocketPos.y, rocketPos.z, 1.f };
+
+			return make_look_at(
+				chaseCamPos4,
+				rocketPos4,
+				Vec4f{ 0.f, 1.f, 0.f, 0.f }  // world-up
+			);
+		}
+
+		// (3) Ground camera
+		case CameraMode::GROUND:
+		{
+			// Always stay at groundCameraPos, look at rocket.
+			auto const& rocketPos = state.rcktCtrl.position;
+			Vec4f rocketPos4 = { rocketPos.x, rocketPos.y, rocketPos.z, 1.f };
+			Vec4f groundPos4 = {
+				state.groundCameraPos.x,
+				state.groundCameraPos.y,
+				state.groundCameraPos.z,
+				1.f
+			};
+
+			return make_look_at(
+				groundPos4,
+				rocketPos4,
+				Vec4f{ 0.f, 1.f, 0.f, 0.f }  // world-up
+			);
+		}
+		}
+
+		// Should never happen, but return identity if logic breaks:
+		return kIdentity44f;
+	}
+
+
 	void updateRocket(State_::rcktCtrl_& rocket, float dt) {
 		if (rocket.isMoving) {
 			// Store previous position for direction calculation
@@ -849,6 +942,7 @@ namespace
 
 			// Combine translation and rotation into the final model-to-world matrix
 			rocket.model2worldRocket = translationMatrix * rotationMatrix;
+
 
 			// Debug output for verification
 			/*printf("Rocket Time: %f\n", rocket.time);
