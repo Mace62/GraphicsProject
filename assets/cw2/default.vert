@@ -48,6 +48,7 @@ void main()
     v2fNs = iNs;
     v2fKe = iKe;
 
+
     v2fPosition = iPosition;
 
     // Apply the projection-camera-world transformation to the vertex position

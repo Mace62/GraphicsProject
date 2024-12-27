@@ -21,7 +21,8 @@ struct SimpleMeshData {
     Vec2f mins;                    // Min tex coord for normalization
     Vec2f diffs;                   // Tex coord diff for normalization
     bool isTextureSupplied = false;
-    Vec3f pointLightsPos[3];
+    Vec3f pointLightPos[3];
+    Vec3f pointLightNorms[3];
 };
 
 

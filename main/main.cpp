@@ -45,6 +45,7 @@ const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4
 const std::string LAUNCHPAD_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/landingpad.obj";
 
 const int MAX_POINT_LIGHTS = 3;
+constexpr Vec3f rocketStartPos = { 0.0f, 0.0f, 0.0f };
 
 namespace
 {
@@ -52,6 +53,8 @@ namespace
 	
 	constexpr float kMovementPerSecond_ = 5.f; // units per second
 	constexpr float kMouseSensitivity_ = 0.01f; // radians per pixel
+
+	constexpr float rocketAcceleration_ = 0.1f;
 
 	struct State_
 	{
@@ -89,17 +92,41 @@ namespace
 
 		// Array to hold multiple point lights
 		struct PointLight {
-			Vec3f position;
-			float radius;
-			Vec3f color;
-			float padding1;     // For std140 alignment
-			
-		} pointLights;  // Array of 3 point lights
+			Vec3f position;    // vec3
+			float padding1;    // 4 bytes of padding for std140 alignment
+			Vec3f color;       // vec3
+			float padding2;    // 4 bytes of padding for std140 alignment
+			Vec3f normals;     // vec3
+			float radius;      // float, aligned to 4 bytes
+		};
 
 		struct PointLightBlock {
 			PointLight lights[MAX_POINT_LIGHTS];
 		};
 
+		struct rcktCtrl_ {
+			Vec3f position = rocketStartPos; // Starting position
+			Vec3f velocity = { 0.0f, 0.0f, 0.0f };   // Velocity starts at zero
+			Mat44f model2worldRocket = kIdentity44f;	// No initial movements or acceleration
+			float acceleration = rocketAcceleration_;                   // Acceleration factor
+			float time = 0.0f;                           // Time for curved path calculation
+			bool isMoving = false;                       // Movement state
+			float pitch = 0.f;
+			float yaw = 0.f;
+
+			Mat44f translationMatrix;
+			Mat44f rotation;
+
+			void reset() {
+				model2worldRocket = kIdentity44f;
+				position = rocketStartPos;
+				velocity = { 0.0f, 0.0f, 0.0f };
+				acceleration = rocketAcceleration_;
+				time = 0.0f;
+				isMoving = false;
+				pitch = 0.0f;
+			}
+		} rcktCtrl;
 	};
 
 	void glfw_callback_error_(int, char const*);
@@ -108,8 +135,11 @@ namespace
 	void glfw_callback_motion_(GLFWwindow*, double, double);
 	void mouse_button_callback(GLFWwindow* aWindow, int button, int action, int mods);
 	void updateCamera(State_::CamCtrl_& camera, float dt);
+	void updateRocket(State_::rcktCtrl_& rocket, float dt);
 
-	void setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS]);
+	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos);
+	void updatePointLights(Mat44f rocketPosition, SimpleMeshData rocketPos, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
+	void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
 
 	struct GLFWCleanupHelper
 	{
@@ -267,15 +297,15 @@ int main() try
 	// Load rocket mesh
     auto rocketMesh = create_spaceship(32,			// Subdivs
 		{0.2f, 0.2f, 0.2f}, {0.8f, 0.2f, 0.2f},		// Colours for rocket body and fins
-		make_translation({ 2.f, 0.15f, -2.f }) * make_scaling(0.05f, 0.05f, 0.05f), 		// Pretransform matrix
+		make_translation({ 2.f, 0.15f, -2.f }) * make_scaling(0.05f, 0.05f, 0.05f),		// Pretransform matrix
 		false
 	);
     GLuint rocketVao = create_vao(rocketMesh);
     std::size_t rocketVertexCount = rocketMesh.positions.size();
 
 	// Set point lights
-	State_::PointLight pointLights[3];
-	setPointLights(pointLights, rocketMesh.pointLightsPos);
+	State_::PointLight pointLights[MAX_POINT_LIGHTS];
+	GLuint pointLightUBO = setPointLights(pointLights, rocketMesh);
 
     OGL_CHECKPOINT_ALWAYS();
 
@@ -313,7 +343,6 @@ int main() try
 		float dt = std::chrono::duration_cast<Secondsf>(now - last).count();
 		last = now;
 
-
 		angle += dt * std::numbers::pi_v<float> *0.3f;
 		if (angle >= 2.f * std::numbers::pi_v<float>)
 			angle -= 2.f * std::numbers::pi_v<float>;
@@ -345,6 +374,8 @@ int main() try
 			state.camControl.up
 		);
 
+		
+
 		// Map Langerso model to world
 		Mat44f model2worldLangerso = kIdentity44f;
 		Mat33f normalMatrixLangerso = mat44_to_mat33(transpose(invert(model2worldLangerso)));
@@ -362,10 +393,16 @@ int main() try
 
 
 		// Map Rocket model to world
-		// TODO: CHANGE THIS WHEN CONSTRUCTING ANIMATION TO REFLECT UPDATED POS OF ROCKET
-		Mat44f model2worldRocket = kIdentity44f;
-		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(model2worldRocket)));
-		Mat44f projCameraWorldRocket = projection * world2camera * model2worldRocket;
+		updateRocket(state.rcktCtrl, dt);
+
+		// Update point light positions
+		updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh, pointLights);
+
+		// Update the UBO with the new point light data
+		updatePointLightUBO(pointLightUBO, pointLights);
+			
+		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(state.rcktCtrl.model2worldRocket)));
+		Mat44f projCameraWorldRocket = projection * world2camera * state.rcktCtrl.model2worldRocket;
 
 
 		// Draw scene
@@ -493,11 +530,16 @@ namespace
 
 		if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow)))
 		{
+			// Start rocket animation with 'F'
+			if (GLFW_KEY_F == aKey && GLFW_PRESS == aAction) {
+				state->rcktCtrl.isMoving = !state->rcktCtrl.isMoving;
+			}
 			// R-key reloads shaders.
 			if (GLFW_KEY_R == aKey && GLFW_PRESS == aAction)
 			{
 				if (state->prog)
 				{
+					state->rcktCtrl.reset();
 					try
 					{
 						state->prog->reload();
@@ -555,8 +597,6 @@ namespace
 					state->camControl.speed_multiplier = state->camControl.NORMAL_SPEED_MULT; // Reset to normal speed when released
 				}
 			}
-
-
 		}
 	}
 
@@ -644,41 +684,180 @@ namespace
 		camera.position = camera.position + movement;
 	}
 
-	void setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], Vec3f pointLightPos[MAX_POINT_LIGHTS]) 
+	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos)
 	{
-		// Update point light data
-		pointLights[0].position = pointLightPos[0];
-		pointLights[0].radius = 0.05f;
+		// Update point light data with larger radius values
+		pointLights[0].position = rocketPos.pointLightPos[0];
+		pointLights[0].radius = 1.0f;        // Increased radius significantly
 		pointLights[0].color = Vec3f{ 1.f, 0.f, 0.f }; // Red
+		pointLights[0].normals = rocketPos.pointLightNorms[0];
 
-		pointLights[1].position = pointLightPos[1];
-		pointLights[1].radius = 0.05f;
+		pointLights[1].position = rocketPos.pointLightPos[1];
+		pointLights[1].radius = 1.0f;
 		pointLights[1].color = Vec3f{ 0.f, 1.f, 0.f }; // Green
+		pointLights[1].normals = rocketPos.pointLightNorms[1];
 
-		pointLights[2].position = pointLightPos[2];
-		pointLights[2].radius = 0.05f;
+		pointLights[2].position = rocketPos.pointLightPos[2];
+		pointLights[2].radius = 1.0f;
 		pointLights[2].color = Vec3f{ 0.f, 0.f, 1.f }; // Blue
-		//pointLights[2].color = Vec3f{ 0.6863f, 0.3686f, 0.1843f }; // Fiery Orange
+		pointLights[2].normals = rocketPos.pointLightNorms[2];
 
-		// Create the UBO
+		for (size_t i = 0; i < MAX_POINT_LIGHTS; ++i) 
+		{ 
+			std::cout << "Point Light " << i << " Position: ("
+				<< pointLights[i].position.x << ", " 
+				<< pointLights[i].position.y << ", "
+				<< pointLights[i].position.z << ")\n"; 
+		}
+
+		// Create and setup UBO
 		GLuint pointLightUBO;
 		glGenBuffers(1, &pointLightUBO);
 		glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(State_::PointLightBlock), nullptr, GL_DYNAMIC_DRAW);
 
-		// Map data to UBO
-		State_::PointLightBlock pointLightData; 
+		// Allocate and initialize buffer in one step
+		State_::PointLightBlock pointLightData;
 		for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
 			pointLightData.lights[i] = pointLights[i];
 		}
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(State_::PointLightBlock), &pointLightData);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(State_::PointLightBlock), &pointLightData, GL_STATIC_DRAW);
 
-		// Bind the UBO to binding point 1 (matches the shader's `binding = 1`)
+		// Bind to uniform buffer binding point
 		glBindBufferBase(GL_UNIFORM_BUFFER, 1, pointLightUBO);
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-		// Unbind the buffer (optional but good practice)
+		return pointLightUBO;
+	}
+
+	void updatePointLights(Mat44f rocketPosition, SimpleMeshData rocketData, State_::PointLight pointLights[MAX_POINT_LIGHTS])
+	{
+		Mat33f const N = mat44_to_mat33(transpose(invert(rocketPosition)));
+		for (int i = 0; i < MAX_POINT_LIGHTS; ++i)
+		{
+			// Transform light positions with rocket matrix
+			Vec4f transformedPos = rocketPosition * Vec4f{ rocketData.pointLightPos[i].x, rocketData.pointLightPos[i].y, rocketData.pointLightPos[i].z, 1.0f };
+			Vec3f transformedNorm = normalize(N * rocketData.pointLightNorms[i]);
+
+			pointLights[i].position = rocketData.pointLightPos[i];
+			pointLights[i].normals = transformedNorm;
+
+			//std::cout << "Before - Position: (" << rocketData.pointLightPos[i].x << ", " << rocketData.pointLightPos[i].y << ", " << rocketData.pointLightPos[i].z << ")" << ", Normal: (" << rocketData.pointLightNorms[i].x << ", " << rocketData.pointLightNorms[i].y << ", " << rocketData.pointLightNorms[i].z << ")\n"; std::cout << "After - Position: (" << transformedPos.x << ", " << transformedPos.y << ", " << transformedPos.z << ")" << ", Normal: (" << transformedNorm.x << ", " << transformedNorm.y << ", " << transformedNorm.z << ")\n";
+
+			// Maintain other properties that were set in setPointLights
+			if (i == 0) {
+				pointLights[i].color = Vec3f{ 1.f, 0.f, 0.f }; // Red
+			}
+			else if (i == 1) {
+				pointLights[i].color = Vec3f{ 0.f, 1.f, 0.f }; // Green
+			}
+			else {
+				pointLights[i].color = Vec3f{ 0.f, 0.f, 1.f }; // Blue
+			}
+			pointLights[i].radius = 1.0f;
+		}
+	}
+
+	void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS])
+	{
+		State_::PointLightBlock pointLightData;
+		for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
+			pointLightData.lights[i] = pointLights[i];
+		}
+
+		// Debugging
+		/*for (size_t i = 0; i < MAX_POINT_LIGHTS; ++i)
+		{
+			std::cout << "Point Light " << i << " Position: ("
+				<< pointLights[i].position.x << ", "
+				<< pointLights[i].position.y << ", "
+				<< pointLights[i].position.z << ")\n";
+		}*/
+
+
+		// Update the buffer without recreating it
+		glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(State_::PointLightBlock), &pointLightData);
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
+
+	void updateRocket(State_::rcktCtrl_& rocket, float dt) {
+		if (rocket.isMoving) {
+			// Store previous position for direction calculation
+			Vec3f previousPosition = rocket.position;
+
+			rocket.time += dt;
+
+			// Define the direction vector for the rocket's motion after 5 seconds
+			Vec3f newDirection = normalize(Vec3f(3.0f, 1.0f, -3.5f)); // Example direction vector (change as needed)
+
+			// Initialize the acceleration vector based on the time elapsed
+			Vec3f accelerationVector;
+
+			if (rocket.time <= 5.0f) {
+				// For the first 5 seconds, only the y-component of acceleration is set to 2
+				accelerationVector = normalize(Vec3f(0.0f, 1.0f, 0.0f));
+			}
+			else {
+				// After 5 seconds, scale the direction vector by the desired acceleration magnitude
+				accelerationVector = newDirection * rocket.acceleration;
+			}
+
+			// Update velocity with the calculated acceleration components
+			rocket.velocity.x += accelerationVector.x * dt;
+			rocket.velocity.y += accelerationVector.y * dt;
+			rocket.velocity.z += accelerationVector.z * dt;
+
+			// Update position based on the velocity
+			rocket.position.x += rocket.velocity.x * dt;
+			rocket.position.y += rocket.velocity.y * dt;
+			rocket.position.z += rocket.velocity.z * dt;
+
+			// Calculate the direction of motion
+			Vec3f direction = {
+				rocket.position.x - previousPosition.x,
+				rocket.position.y - previousPosition.y,
+				rocket.position.z - previousPosition.z
+			};
+
+			// Normalize the direction vector to prevent errors when calculating rotation
+			if (length(direction) > 0.001f) {
+				direction = normalize(direction);
+			}
+
+			// Assume the rocket moves primarily along the y-axis (forward direction)
+			Vec3f rocketForward = Vec3f(0.0f, 1.0f, 0.0f);
+
+			// Calculate pitch: angle between the forward direction and the direction vector
+			float pitch = atan2(direction.z, sqrt(direction.x * direction.x + direction.y * direction.y));
+
+			// Calculate yaw: angle in the x-y plane
+			float yaw = atan2(direction.x, direction.y);
+
+			// Debug pitch and yaw for verification
+			/*printf("Pitch: %f radians\n", pitch);
+			printf("Yaw: %f radians\n", yaw);*/
+
+			// Create rotation matrices for pitch and yaw
+			Mat44f rotationMatrixPitch = make_rotation_x(pitch); // Pitch around X-axis
+			Mat44f rotationMatrixYaw = make_rotation_z(-yaw);     // Yaw around Z-axis
+
+			// Combine rotations in the correct order (YPR)
+			Mat44f rotationMatrix = rotationMatrixYaw * rotationMatrixPitch;
+
+			// Translate the rocket to its current position
+			Mat44f translationMatrix = make_translation(rocket.position);
+
+			// Combine translation and rotation into the final model-to-world matrix
+			rocket.model2worldRocket = translationMatrix * rotationMatrix;
+
+			// Debug output for verification
+			/*printf("Rocket Time: %f\n", rocket.time);
+			printf("Position: (%f, %f, %f)\n", rocket.position.x, rocket.position.y, rocket.position.z);
+			printf("Velocity: (%f, %f, %f)\n", rocket.velocity.x, rocket.velocity.y, rocket.velocity.z);
+			printf("Direction: (%f, %f, %f)\n", direction.x, direction.y, direction.z);*/
+		}
+	}
+
 }
 
 
