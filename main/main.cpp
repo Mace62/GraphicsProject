@@ -95,8 +95,6 @@ namespace
 			Vec3f position;    // vec3
 			float padding1;    // 4 bytes of padding for std140 alignment
 			Vec3f color;       // vec3
-			float padding2;    // 4 bytes of padding for std140 alignment
-			Vec3f normals;     // vec3
 			float radius;      // float, aligned to 4 bytes
 		};
 
@@ -690,17 +688,14 @@ namespace
 		pointLights[0].position = rocketPos.pointLightPos[0];
 		pointLights[0].radius = 1.0f;        // Increased radius significantly
 		pointLights[0].color = Vec3f{ 1.f, 0.f, 0.f }; // Red
-		pointLights[0].normals = rocketPos.pointLightNorms[0];
 
 		pointLights[1].position = rocketPos.pointLightPos[1];
 		pointLights[1].radius = 1.0f;
 		pointLights[1].color = Vec3f{ 0.f, 1.f, 0.f }; // Green
-		pointLights[1].normals = rocketPos.pointLightNorms[1];
 
 		pointLights[2].position = rocketPos.pointLightPos[2];
 		pointLights[2].radius = 1.0f;
 		pointLights[2].color = Vec3f{ 0.f, 0.f, 1.f }; // Blue
-		pointLights[2].normals = rocketPos.pointLightNorms[2];
 
 		for (size_t i = 0; i < MAX_POINT_LIGHTS; ++i) 
 		{ 
@@ -736,10 +731,7 @@ namespace
 		{
 			// Transform light positions with rocket matrix
 			Vec4f transformedPos = rocketPosition * Vec4f{ rocketData.pointLightPos[i].x, rocketData.pointLightPos[i].y, rocketData.pointLightPos[i].z, 1.0f };
-			Vec3f transformedNorm = normalize(N * rocketData.pointLightNorms[i]);
-
 			pointLights[i].position = rocketData.pointLightPos[i];
-			pointLights[i].normals = transformedNorm;
 
 			//std::cout << "Before - Position: (" << rocketData.pointLightPos[i].x << ", " << rocketData.pointLightPos[i].y << ", " << rocketData.pointLightPos[i].z << ")" << ", Normal: (" << rocketData.pointLightNorms[i].x << ", " << rocketData.pointLightNorms[i].y << ", " << rocketData.pointLightNorms[i].z << ")\n"; std::cout << "After - Position: (" << transformedPos.x << ", " << transformedPos.y << ", " << transformedPos.z << ")" << ", Normal: (" << transformedNorm.x << ", " << transformedNorm.y << ", " << transformedNorm.z << ")\n";
 

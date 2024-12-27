@@ -22,10 +22,7 @@ layout(location = 5) uniform bool uUseTexture;        // Flag to use texture
 // Point Light structs and uniforms
 struct PointLight {
     vec3 position;  // 12 bytes + 4 bytes padding
-    float padding1; // Not explicitly required in GLSL, but aligns
     vec3 color;     // 12 bytes + 4 bytes padding
-    float padding2; // Not explicitly required in GLSL
-    vec3 normal;    // 12 bytes + 4 bytes padding
     float radius;   // Aligned at 4 bytes
 };
 
@@ -42,9 +39,6 @@ float dotProduct(vec3 a, vec3 b) {
 
 // Function to calculate point light contribution
 vec3 calculatePointLight(PointLight light, vec3 normal, vec3 viewDir, vec3 position) {
-    // Calculate orientation factor using light's normal
-    //float orientationFactor = max(dotProduct(normalize(light.normal), normal), 0.0);
-
     vec3 lightDir = light.position - position;
     float distance = length(lightDir);
     lightDir = normalize(lightDir);
