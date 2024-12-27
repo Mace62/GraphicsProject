@@ -26,6 +26,7 @@ out vec3 v2fKd;       // Diffuse reflectivity (passed to fragment shader)
 out vec3 v2fKs;       // Specular reflectivity (passed to fragment shader)
 out float v2fNs;      // Shininess (passed to fragment shader)
 out vec3 v2fKe;       // Emission (passed to fragment shader)
+out vec3 v2fPosition;       // Vetex position
 
 void main()
 {
@@ -35,12 +36,10 @@ void main()
     // Apply normal matrix to the normal and pass it as output
     v2fNormal = normalize(uNormalMatrix * iNormal);
 
-    // Normalize the x and z positions to [0, 1] based on terrain dimensions
-    float u = (iPosition.x - uMin.x) / uDiff.x;
-    float v = (iPosition.z - uMin.y) / uDiff.y;
-
-    // Assign the normalized values to texture coordinates
-    v2fTexCoord = vec2(u, v);
+    // Calculate texture coordinates, clamping for safety
+    float u = uDiff.x != 0.0 ? (iPosition.x - uMin.x) / uDiff.x : 0.0;
+    float v = uDiff.y != 0.0 ? (iPosition.z - uMin.y) / uDiff.y : 0.0;
+    v2fTexCoord = vec2(clamp(u, 0.0, 1.0), clamp(v, 0.0, 1.0));
 
     // Pass the material properties to the fragment shader
     v2fKa = iKa;
@@ -48,6 +47,9 @@ void main()
     v2fKs = iKs;
     v2fNs = iNs;
     v2fKe = iKe;
+
+
+    v2fPosition = iPosition;
 
     // Apply the projection-camera-world transformation to the vertex position
     gl_Position = uProjCameraWorld * vec4(iPosition, 1.0);

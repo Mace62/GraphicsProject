@@ -7,26 +7,21 @@
 
 #include <cstddef> // For std::size_t
 
-/**
- * @brief Generates a truncated ovoid (ellipsoid-like) mesh with specified top and bottom cutoffs.
- *
- * @param aCircleSubdivs Number of subdivisions around the circumference.
- * @param aHeightSubdivs Number of subdivisions along the height.
- * @param verticalScale Scaling factor for the height (elongation of the ovoid).
- * @param topCutoff Fraction of the ovoid to cut off from the top (0.0 - 1.0).
- * @param bottomCutoff Fraction of the ovoid to cut off from the bottom (0.0 - 1.0).
- * @param aColor Colour to apply to the mesh vertices.
- * @param aPreTransform A pre-transform matrix to apply to the entire ovoid.
- * @return SimpleMeshData A mesh containing the positions, normals, and colours for the truncated ovoid.
- */
+// Generates a truncated ovoid (ellipsoid-like) mesh with specified top and bottom cutoffs.
+
 SimpleMeshData make_truncated_ovoid(
     std::size_t aCircleSubdivs,
     std::size_t aHeightSubdivs,
     float verticalScale,
     float topCutoff,
     float bottomCutoff,
-    Vec3f aColor,
-    Mat44f aPreTransform
+    Vec3f aColor = { 1.f, 1.f, 1.f },
+    Mat44f aPreTransform = kIdentity44f,
+    Vec3f aKa = { 0.5f, 0.5f, 0.5f },       // Ambient reflectivity
+    Vec3f aKd = { 0.8f, 0.8f, 0.8f },       // Diffuse reflectivity (silver)
+    Vec3f aKs = { 0.6f, 0.6f, 0.6f },       // Specular reflectivity (shiny metal)
+    float aNs = 50.f,                       // Shininess
+    Vec3f aKe = { 0.f, 0.f, 0.f }           // Emission
 );
 
 #endif // TRUNCATED_OVOID_HPP

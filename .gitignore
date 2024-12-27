@@ -1,10 +1,10 @@
 .git
 .vs
-bin/**
-lib/**
-bin
-lib
+**/bin
+**/lib
 **/*.vcxproj
 **/*.vcxproj.*
 _build_
 *.sln
+**/enc_temp_folder
+**/.aps

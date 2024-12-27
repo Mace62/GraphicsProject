@@ -7,6 +7,7 @@
 #include "simple_mesh.hpp"
 
 #include <numbers>
+#include <iostream>
 
 
 SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3f aColorWings, Mat44f aPreTransform, bool isTextureSupplied)
@@ -19,6 +20,11 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 
 	SimpleMeshData rocketData{};
 
+	// Precompute the normal matrix (3x3 inverse-transpose submatrix of aPreTransform)
+	aPreTransform = aPreTransform * make_rotation_z(std::numbers::pi_v<float> / 2.f);
+
+	Mat33f const N = mat44_to_mat33(transpose(invert(aPreTransform)));
+
 	// Create cylinder for main body
 	auto mainBodyCylinder = make_cylinder(true, aSubdivs, aColorMainBody,
 		make_scaling(4.f, 0.5f, 0.5f) * make_translation({ -0.5f, 0.f, 0.f })		// Centre cylinder first, then apply scaling
@@ -30,47 +36,34 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	);
 
 	// Create 2 wings as "flight control surfaces"
-	auto wingTriangleBasedPrism = make_triangle_based_prism( true, 
+	auto wingTriangleBasedPrism1 = make_triangle_based_prism( true, 
 		{1.5f, 0.f}, { 0.f, 0.f }, { 0.f, 1.f },
-		0.05f, aColorWings,
+		0.05f, aColorMainBody,
 		make_rotation_y(-90 *(std::numbers::pi_v<float> / 180.0)) * make_translation({0.f, 1.f, -0.5f}) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
 	);
 
-	rocketData = concatenate(std::move(mainBodyCylinder), spaceshipNoseCone);
-
-	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism);
-
-	// Loop through the original positions and apply matrix
-	for (auto& pos : wingTriangleBasedPrism.positions) {
-		// Transform the position with the rotation matrix
-		Vec4f transformedPos = make_rotation_x(std::numbers::pi_v<float>) * Vec4f{ pos.x, pos.y, pos.z, 1.f };
-
-		// Replace the current position with the transformed position
-		pos = Vec3f{ transformedPos.x, transformedPos.y, transformedPos.z };
-	}
-	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism);
-
-
-
-	// Create 4 rocket holder stands
-	auto standTriangleBasedPrism = make_triangle_based_prism(true,
-		{ 1.0f, 0.f }, { 0.f, 0.f }, { -1.f, 1.f },
-		0.05f, aColorWings,
-		make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, 1.75f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
+	auto wingTriangleBasedPrism2 = make_triangle_based_prism(true,
+		{ 1.5f, 0.f }, { 0.f, 0.f }, { 0.f, 1.f },
+		0.05f, aColorMainBody,
+		make_rotation_x(std::numbers::pi_v<float>) * make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, -0.5f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
 	);
-	rocketData = concatenate(std::move(rocketData), standTriangleBasedPrism);
 
-	// Other 3 created by matrix calculation
-	for (int standNum = 0; standNum < 3; standNum++)
+	rocketData = concatenate(std::move(mainBodyCylinder), spaceshipNoseCone);
+	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism1);
+	rocketData = concatenate(std::move(rocketData), wingTriangleBasedPrism2);
+
+
+	SimpleMeshData standTriangleBasedPrism;
+
+	// 4 stands created by 4 calls to func
+	for (int standNum = 0; standNum < 4; standNum++)
 	{
-		// Loop through the original positions and apply matrix
-		for (auto& pos : standTriangleBasedPrism.positions) {
-			// Transform the position with the rotation matrix
-			Vec4f transformedPos = make_rotation_x(std::numbers::pi_v<float>/2.f) * Vec4f { pos.x, pos.y, pos.z, 1.f };
+		auto standTriangleBasedPrism = make_triangle_based_prism(true,
+			{ 1.0f, 0.f }, { 0.f, 0.f }, { -1.f, 1.f },
+			0.05f, aColorWings,
+			make_rotation_x(standNum* std::numbers::pi_v<float> / 2.f) * make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, 1.75f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
+		);
 
-			// Replace the current position with the transformed position
-			pos = Vec3f{ transformedPos.x, transformedPos.y, transformedPos.z };
-		}
 		rocketData = concatenate(std::move(rocketData), standTriangleBasedPrism);
 	}
 	
@@ -87,13 +80,8 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	
     rocketData = concatenate(std::move(rocketData), nozzle);
 
-	// Loop through and set each vector to zero
+	// Set tex coords t
 	rocketData.texcoords.assign(rocketData.positions.size(), Vec2f{ 0.f, 0.f });
-	rocketData.Ka.assign(rocketData.positions.size(), Vec3f{ 0.f, 0.f, 0.f });
-	rocketData.Kd.assign(rocketData.positions.size(), Vec3f{ 0.f, 0.f, 0.f });
-	rocketData.Ks.assign(rocketData.positions.size(), Vec3f{ 0.f, 0.f, 0.f });
-	rocketData.Ns.assign(rocketData.positions.size(), 0.f);
-	rocketData.Ke.assign(rocketData.positions.size(), Vec3f{ 0.f, 0.f, 0.f });
 
 	// Set mins and diffs to zero
 	rocketData.mins = Vec2f{ 0.f, 0.f };
@@ -104,11 +92,72 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
     for (auto& p : rocketData.positions)
     {
         Vec4f p4{ p.x, p.y, p.z, 1.f };
-        Vec4f t = aPreTransform * make_rotation_z(std::numbers::pi_v<float> / 2.f) * p4;
+        Vec4f t = aPreTransform * p4;
         t /= t.w;
 
         p = Vec3f{ t.x, t.y, t.z };
     }
+
+	// Initialize min and max values to extreme values
+	Vec3f minVals{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+	Vec3f maxVals{ std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest() };
+
+	// Initialize variables to store the positions corresponding to min and max values
+	Vec3f minPos, maxPos;
+
+	// DEBUGGER LOOP
+	for (auto& p : rocketData.positions)
+	{
+		// Update min and max values for each component, and store the corresponding position
+		if (p.x < minVals.x) { minVals.x = p.x; minPos = p; }
+		if (p.y < minVals.y) { minVals.y = p.y; minPos = p; }
+		if (p.z < minVals.z) { minVals.z = p.z; minPos = p; }
+
+		if (p.x > maxVals.x) { maxVals.x = p.x; maxPos = p; }
+		if (p.y > maxVals.y) { maxVals.y = p.y; maxPos = p; }
+		if (p.z > maxVals.z) { maxVals.z = p.z; maxPos = p; }
+	}
+
+	for (auto& n : rocketData.normals)
+	{
+		// Transform the normal using N (inverse transpose of the transformation matrix)
+		Vec3f transformedNormal = N * n;
+
+		// Normalize the transformed normal
+		transformedNormal = normalize(transformedNormal);
+
+		// Assign the normalized normal back
+		n = transformedNormal;
+	}
+
+	// After the loop, minVals and maxVals contain the min and max values for x, y, and z
+	std::cout << "Min values: (" << minVals.x << ", " << minVals.y << ", " << minVals.z << ") at position (" << minPos.x << ", " << minPos.y << ", " << minPos.z << ")" << std::endl;
+	std::cout << "Max values: (" << maxVals.x << ", " << maxVals.y << ", " << maxVals.z << ") at position (" << maxPos.x << ", " << maxPos.y << ", " << maxPos.z << ")" << std::endl;
+
+	// Add point lights
+	rocketData.pointLightPos[0] = Vec3f{ 0.53f, 0.f, 0.53f };			// Going to side of craft
+	rocketData.pointLightPos[1] = mat44_to_mat33(make_rotation_x(std::numbers::pi_v<float>)) * rocketData.pointLightPos[0];			// Going to opposite side of craft
+	rocketData.pointLightPos[2] = Vec3f{ 3.2f, 0.f, 0.f };			// Going to thruster
+
+	// Scale point lights according to pretransform matrix
+	for (auto& lp : rocketData.pointLightPos)
+	{
+		Vec4f p4{ lp.x, lp.y, lp.z, 1.f };
+		Vec4f t = aPreTransform * p4;
+		t /= t.w;
+
+		lp = Vec3f{ t.x, t.y, t.z };
+	}
+
+	// Add point light normals
+	rocketData.pointLightNorms[0] = Vec3f{ 1.f, 0.f, 0.53f };			// Going to side of craft
+	rocketData.pointLightNorms[1] = mat44_to_mat33(make_rotation_y(std::numbers::pi_v<float>)) * rocketData.pointLightPos[0];			// Going to opposite side of craft
+	rocketData.pointLightNorms[2] = Vec3f{ 3.2f, 0.f, 0.f };			// Going to thruster
+
+	// For directions/orientations
+	for (int i = 0; i < 3; i++) {
+		rocketData.pointLightNorms[i] = normalize(N * rocketData.pointLightPos[i]);
+	}
 
     rocketData.isTextureSupplied = isTextureSupplied;
 
