@@ -149,6 +149,8 @@ namespace
 
 	void updateCamera(State_::CamCtrl_& camera, float dt);
 	void updateRocket(State_::rcktCtrl_& rocket, float dt);
+	Mat44f compute_view_matrix(State_ const& state);
+
 
 	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos);
 	void updatePointLights(Mat44f rocketPosition, SimpleMeshData rocketPos, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
