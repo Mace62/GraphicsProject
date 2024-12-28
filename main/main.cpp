@@ -21,6 +21,8 @@
 #include "../vmlib/mat44.hpp"
 #include "../vmlib/mat33.hpp"
 
+#include "render_text.hpp"
+
 #include "defaults.hpp"
 #include "loadobj.hpp"
 #include "texture.hpp"
@@ -43,6 +45,8 @@ const std::string DIR_PATH = std::filesystem::current_path().string();
 const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj";
 const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
 const std::string LAUNCHPAD_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/landingpad.obj";
+const std::string FONT_PATH = DIR_PATH + "/assets/cw2/DroidSansMonoDotted.ttf";
+
 
 const int MAX_POINT_LIGHTS = 3;
 constexpr Vec3f rocketStartPos = { 0.0f, 0.0f, 0.0f };
@@ -59,6 +63,7 @@ namespace
 	struct State_
 	{
 		ShaderProgram* prog;
+		ShaderProgram* textShader;
 
 		struct CamCtrl_
 		{
@@ -268,8 +273,17 @@ int main() try
 		{ GL_FRAGMENT_SHADER, "assets/cw2/default.frag" }
 	});
 
+	ShaderProgram textShader({
+		{GL_VERTEX_SHADER, "assets/cw2/text.vert"},
+		{GL_FRAGMENT_SHADER, "assets/cw2/text.frag"}
+	});
+
 	state.prog = &prog;
+	state.textShader = &textShader;
 	state.camControl.radius = 10.f;
+
+	// Start fontstash instance
+	initFontstash(1280, 720, FONT_PATH.c_str(), 0, textShader.programId());
 
 	// Animation state
 	auto last = Clock::now();
@@ -336,7 +350,6 @@ int main() try
         }
 
 		// Update state
-		//TODO: update state of rocket
 		auto const now = Clock::now();
 		float dt = std::chrono::duration_cast<Secondsf>(now - last).count();
 		last = now;
@@ -354,138 +367,147 @@ int main() try
 		if (state.camControl.radius <= 0.1f)
 			state.camControl.radius = 0.1f;
 
-		// Projection matrix setup
-		Mat44f projection = make_perspective_projection(
-			60.f * std::numbers::pi_v<float> / 180.f,  // FOV: 60 degrees
-			fbwidth / float(fbheight),                 // Aspect ratio
-			0.1f, 100.0f                              // Near and far planes
-		);
+		//// Projection matrix setup
+		//Mat44f projection = make_perspective_projection(
+		//	60.f * std::numbers::pi_v<float> / 180.f,  // FOV: 60 degrees
+		//	fbwidth / float(fbheight),                 // Aspect ratio
+		//	0.1f, 100.0f                              // Near and far planes
+		//);
+
+		//// Update camera position with new FPS camera system
+		//updateCamera(state.camControl, dt);
+
+		//// Calculate new view matrix using look_at func
+		//Mat44f world2camera = make_look_at(
+		//	state.camControl.position,
+		//	state.camControl.position + state.camControl.forward,
+		//	state.camControl.up
+		//);
+
+		//// Map Langerso model to world
+		//Mat44f model2worldLangerso = kIdentity44f;
+		//Mat33f normalMatrixLangerso = mat44_to_mat33(transpose(invert(model2worldLangerso)));
+		//Mat44f projCameraWorldLangerso = projection * world2camera * model2worldLangerso;
+
+		//// Map Launcpad 1 model to world
+		//Mat44f model2worldLaunchpad1 = kIdentity44f;
+		//Mat33f normalMatrixLaunchpad1 = mat44_to_mat33(transpose(invert(model2worldLaunchpad1)));
+		//Mat44f projCameraWorldLaunchpad1 = projection * world2camera * model2worldLaunchpad1;
+
+		//// Map Launcpad 1 model to world
+		//Mat44f model2worldLaunchpad2 = make_translation({ 3.f, 0.f, -5.f });
+		//Mat33f normalMatrixLaunchpad2 = mat44_to_mat33(transpose(invert(model2worldLaunchpad2)));
+		//Mat44f projCameraWorldLaunchpad2 = projection * world2camera * model2worldLaunchpad2;
 
 
-		// Update camera position with new FPS camera system
-		updateCamera(state.camControl, dt);
+		//// Map Rocket model to world
+		//updateRocket(state.rcktCtrl, dt);
 
-		// Calculate new view matrix using look_at func
-		Mat44f world2camera = make_look_at(
-			state.camControl.position,
-			state.camControl.position + state.camControl.forward,
-			state.camControl.up
-		);
+		//// Update point light positions
+		//updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh, pointLights);
 
-		
-
-		// Map Langerso model to world
-		Mat44f model2worldLangerso = kIdentity44f;
-		Mat33f normalMatrixLangerso = mat44_to_mat33(transpose(invert(model2worldLangerso)));
-		Mat44f projCameraWorldLangerso = projection * world2camera * model2worldLangerso;
-
-		// Map Launcpad 1 model to world
-		Mat44f model2worldLaunchpad1 = kIdentity44f;
-		Mat33f normalMatrixLaunchpad1 = mat44_to_mat33(transpose(invert(model2worldLaunchpad1)));
-		Mat44f projCameraWorldLaunchpad1 = projection * world2camera * model2worldLaunchpad1;
-
-		// Map Launcpad 1 model to world
-		Mat44f model2worldLaunchpad2 = make_translation({ 3.f, 0.f, -5.f });
-		Mat33f normalMatrixLaunchpad2 = mat44_to_mat33(transpose(invert(model2worldLaunchpad2)));
-		Mat44f projCameraWorldLaunchpad2 = projection * world2camera * model2worldLaunchpad2;
+		//// Update the UBO with the new point light data
+		//updatePointLightUBO(pointLightUBO, pointLights);
+		//	
+		//Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(state.rcktCtrl.model2worldRocket)));
+		//Mat44f projCameraWorldRocket = projection * world2camera * state.rcktCtrl.model2worldRocket;
 
 
-		// Map Rocket model to world
-		updateRocket(state.rcktCtrl, dt);
+		//// Draw scene
+		//OGL_CHECKPOINT_DEBUG();
 
-		// Update point light positions
-		updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh, pointLights);
+		//// Clear color buffer to specified clear color (glClearColor())
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// Update the UBO with the new point light data
-		updatePointLightUBO(pointLightUBO, pointLights);
-			
-		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(state.rcktCtrl.model2worldRocket)));
-		Mat44f projCameraWorldRocket = projection * world2camera * state.rcktCtrl.model2worldRocket;
+		//// We want to draw with our program.
+		//glUseProgram(prog.programId());
 
+		//// Task 2 general light dir requirement (needs to be applied to ALL objects)
+		//Vec3f lightDir = normalize(Vec3f{ 0.f, 1.f, -1.f });
 
-		// Draw scene
-		OGL_CHECKPOINT_DEBUG();
-
-		// Clear color buffer to specified clear color (glClearColor())
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// We want to draw with our program.
-		glUseProgram(prog.programId());
-
-		// Task 2 general light dir requirement (needs to be applied to ALL objects)
-		Vec3f lightDir = normalize(Vec3f{ 0.f, 1.f, -1.f });
-
-		glUniform3fv(2, 1, &lightDir.x); // Apply light dir vec
-		glUniform3f(3, 0.678f, 0.847f, 0.902f);	// Apply diffuse vec (light blue tint)
-		glUniform3f(4, 0.05f, 0.05f, 0.05f);	// Apply scene ambience vec
+		//glUniform3fv(2, 1, &lightDir.x); // Apply light dir vec
+		//glUniform3f(3, 0.678f, 0.847f, 0.902f);	// Apply diffuse vec (light blue tint)
+		//glUniform3f(4, 0.05f, 0.05f, 0.05f);	// Apply scene ambience vec
 
 
-		/*	FOR SCENE MESH	*/
-		// Parse Normalisation matrix to vertex shader for langerso model
-		glUniformMatrix3fv(
-			1, // make sure this matches the location = N in the vertex shader!
-			1, GL_TRUE, normalMatrixLangerso.v
-		);
+		///*	FOR SCENE MESH	*/
+		//// Parse Normalisation matrix to vertex shader for langerso model
+		//glUniformMatrix3fv(
+		//	1, // make sure this matches the location = N in the vertex shader!
+		//	1, GL_TRUE, normalMatrixLangerso.v
+		//);
 
-		// Bind textures
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, langersoTextureObjectId);
-		glUniform1i(5, langersoMesh.isTextureSupplied);
+		//// Bind textures
+		//glActiveTexture(GL_TEXTURE0);
+		//glBindTexture(GL_TEXTURE_2D, langersoTextureObjectId);
+		//glUniform1i(5, langersoMesh.isTextureSupplied);
 
-		// Give min and dims of the mesh to align tex coords with mesh 
-		glUniform2f(6, langersoMesh.mins.x, langersoMesh.mins.y);
-		glUniform2f(7, langersoMesh.diffs.x, langersoMesh.diffs.y);
+		//// Give min and dims of the mesh to align tex coords with mesh 
+		//glUniform2f(6, langersoMesh.mins.x, langersoMesh.mins.y);
+		//glUniform2f(7, langersoMesh.diffs.x, langersoMesh.diffs.y);
 
-		// Draw scene
-		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
-		glBindVertexArray(langersoVao);
-		glDrawArrays(GL_TRIANGLES, 0, langersoVertexCount);
+		//// Draw scene
+		//glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLangerso.v);
+		//glBindVertexArray(langersoVao);
+		//glDrawArrays(GL_TRIANGLES, 0, langersoVertexCount);
 
-		// Unbind and reset texture to stop it being applied to other models
-		glBindTexture(GL_TEXTURE_2D, 0);
+		//// Unbind and reset texture to stop it being applied to other models
+		//glBindTexture(GL_TEXTURE_2D, 0);
 
 
 
-		/*	FOR ROCKET MESH	*/
-		// Parse Normalisation matrix to vertex shader for rocket
-		glUniformMatrix3fv(
-			1, // make sure this matches the location = N in the vertex shader!
-			1, GL_TRUE, normalMatrixRocket.v
-		);
+		///*	FOR ROCKET MESH	*/
+		//// Parse Normalisation matrix to vertex shader for rocket
+		//glUniformMatrix3fv(
+		//	1, // make sure this matches the location = N in the vertex shader!
+		//	1, GL_TRUE, normalMatrixRocket.v
+		//);
 
-		// Draw rocket
-		glUniform1i(5, rocketMesh.isTextureSupplied);
-        glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldRocket.v);
-        glBindVertexArray(rocketVao);
-        glDrawArrays(GL_TRIANGLES, 0, rocketVertexCount);
-
-
-
-		/*	FOR LAUNCHPAD MESH	*/
-		// Parse Normalisation matrix to vertex shader for launchpad 1
-		glUniformMatrix3fv(
-			1, // make sure this matches the location = N in the vertex shader!
-			1, GL_TRUE, normalMatrixLaunchpad1.v
-		);
-
-		// Draw launchpad 1
-		glUniform1i(5, launchpadMesh.isTextureSupplied);
-		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad1.v);
-		glBindVertexArray(launchpadVao);
-		glDrawArrays(GL_TRIANGLES, 0, launchpadVertexCount);
+		//// Draw rocket
+		//glUniform1i(5, rocketMesh.isTextureSupplied);
+  //      glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldRocket.v);
+  //      glBindVertexArray(rocketVao);
+  //      glDrawArrays(GL_TRIANGLES, 0, rocketVertexCount);
 
 
-		// Parse Normalisation matrix to vertex shader for launchpad 2
-		glUniformMatrix3fv(
-			1, // make sure this matches the location = N in the vertex shader!
-			1, GL_TRUE, normalMatrixLaunchpad2.v
-		);
 
-		// Draw launchpad 2
-		glUniform1i(5, launchpadMesh.isTextureSupplied);
-		glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad2.v);
-		glBindVertexArray(launchpadVao);
-		glDrawArrays(GL_TRIANGLES, 0, launchpadVertexCount);
+		///*	FOR LAUNCHPAD MESH	*/
+		//// Parse Normalisation matrix to vertex shader for launchpad 1
+		//glUniformMatrix3fv(
+		//	1, // make sure this matches the location = N in the vertex shader!
+		//	1, GL_TRUE, normalMatrixLaunchpad1.v
+		//);
+
+		//// Draw launchpad 1
+		//glUniform1i(5, launchpadMesh.isTextureSupplied);
+		//glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad1.v);
+		//glBindVertexArray(launchpadVao);
+		//glDrawArrays(GL_TRIANGLES, 0, launchpadVertexCount);
+
+
+		//// Parse Normalisation matrix to vertex shader for launchpad 2
+		//glUniformMatrix3fv(
+		//	1, // make sure this matches the location = N in the vertex shader!
+		//	1, GL_TRUE, normalMatrixLaunchpad2.v
+		//);
+
+		//// Draw launchpad 2
+		//glUniform1i(5, launchpadMesh.isTextureSupplied);
+		//glUniformMatrix4fv(0, 1, GL_TRUE, projCameraWorldLaunchpad2.v);
+		//glBindVertexArray(launchpadVao);
+		//glDrawArrays(GL_TRIANGLES, 0, launchpadVertexCount);
+
+
+		/*	DRAW ALTITUDE TEXT	*/
+		const char* text = "hi";
+
+		glClear( GL_DEPTH_BUFFER_BIT);
+
+
+		glUseProgram(textShader.programId());
+		renderText("Hello, World!", 0.0f, 0.0f, 48, 0xFFFFFFFF);  // Center of screen
+		renderText("Top Right", 0.8f, 0.8f, 24, 0xFFFFFFFF);      // Top-right corner
+		renderText("Bottom Left", -0.8f, -0.8f, 24, 0xFFFFFFFF);  // Bottom-left corner
 
 
 
@@ -499,6 +521,7 @@ int main() try
 	state.prog = nullptr;
 	
 	//TODO: additional cleanup
+	deleteFontstash();
 	
 	return 0;
 }
@@ -832,14 +855,14 @@ namespace
 			Mat44f rotationMatrixPitch = make_rotation_x(pitch); // Pitch around X-axis
 			Mat44f rotationMatrixYaw = make_rotation_z(-yaw);     // Yaw around Z-axis
 
-			// Combine rotations in the correct order (YPR)
+			// Combine rotations in the correct order (YP)
 			Mat44f rotationMatrix = rotationMatrixYaw * rotationMatrixPitch;
 
 			// Translate the rocket to its current position
 			Mat44f translationMatrix = make_translation(rocket.position);
 
 			// Combine translation and rotation into the final model-to-world matrix
-			rocket.model2worldRocket = translationMatrix * rotationMatrix;
+			rocket.model2worldRocket = rotationMatrix * translationMatrix;
 
 			// Debug output for verification
 			printf("Rocket Time: %f\n", rocket.time);
