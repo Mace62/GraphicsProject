@@ -137,7 +137,7 @@ namespace
 			}
 		} rcktCtrl;
 
-		float chaseDistance = 3.0f;    // distance behind the rocket
+		float chaseDistance = 1.0f;    // distance behind the rocket
 		Vec3f groundCameraPos = { -5.f, 1.0f, 0.f }; // chosen ground location
 	};
 
@@ -712,6 +712,13 @@ namespace
 
 		// Update position
 		camera.position = camera.position + movement;
+
+		/*std::cout << "Camera position: ("
+			<< camera.position.x << ", "
+			<< camera.position.y << ", "
+			<< camera.position.z << ", "
+			<< camera.position.w << ")\n";*/
+
 	}
 
 	GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos)
@@ -840,7 +847,7 @@ namespace
 			Vec4f chaseCamPos4 = { chaseCamPos.x, chaseCamPos.y, chaseCamPos.z, 1.f };
 
 			// Look towards rocket
-			Vec4f rocketPos4 = { rocketPos.x, rocketPos.y, rocketPos.z, 1.f };
+			Vec4f rocketPos4 = { rocketPos.x + 1.47f , rocketPos.y, rocketPos.z - 1.20f, 1.f };
 
 			return make_look_at(
 				chaseCamPos4,
@@ -854,7 +861,7 @@ namespace
 		{
 			// Always stay at groundCameraPos, look at rocket.
 			auto const& rocketPos = state.rcktCtrl.position;
-			Vec4f rocketPos4 = { rocketPos.x, rocketPos.y, rocketPos.z, 1.f };
+			Vec4f rocketPos4 = { rocketPos.x + 1.47f , rocketPos.y, rocketPos.z - 1.20f, 1.f };
 			Vec4f groundPos4 = {
 				state.groundCameraPos.x,
 				state.groundCameraPos.y,
