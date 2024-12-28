@@ -4,20 +4,19 @@
 #include <numbers>
 #include <typeinfo>
 #include <stdexcept>
-
 #include <cstdio>
 #include <cstdlib>
 
 #include <filesystem>
 #include <string>
 #include <iostream>
-#include <chrono>       // For timing logic
+#include <chrono>
+#include <ctime>
 
 #include "../support/error.hpp"
 #include "../support/program.hpp"
 #include "../support/checkpoint.hpp"
 #include "../support/debug_output.hpp"
-
 #include "../vmlib/vec4.hpp"
 #include "../vmlib/mat44.hpp"
 #include "../vmlib/mat33.hpp"
@@ -29,173 +28,720 @@
 
 #define M_PI 3.14159265358979323846
 
-#if defined(_WIN32) // alternative: #if defined(_MSC_VER)
-extern "C"
-{
+#if defined(_WIN32)
+extern "C" {
     __declspec(dllexport) unsigned long NvOptimusEnablement = 1;
-    __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1; // untested
+    __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif
 
-// ------------------- Assets & Constants --------------------
+// ------------- Paths -------------
 const std::string DIR_PATH = std::filesystem::current_path().string();
 
-const std::string LANGERSO_OBJ_ASSET_PATH        = DIR_PATH + "/assets/cw2/langerso.obj";
-const std::string LANGERSO_TEXTURE_ASSET_PATH    = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
-const std::string LAUNCHPAD_OBJ_ASSET_PATH       = DIR_PATH + "/assets/cw2/landingpad.obj";
+const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj";
+const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
+const std::string LAUNCHPAD_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/landingpad.obj";
+const std::string PARTICLE_TEXTURE_PATH = DIR_PATH + "/assets/cw2/particle_smoke.png";
 
+// We assume your geometry shaders are named:
+//   "assets/cw2/default.vert" and "assets/cw2/default.frag"
+// and your new separate particle shaders are named:
+//   "assets/cw2/particle.vert" and "assets/cw2/particle.frag"
+
+
+// ------------- Some Constants -------------
 static constexpr int MAX_POINT_LIGHTS = 3;
+static constexpr size_t kMaxParticles = 500;
 static constexpr Vec3f rocketStartPos = { 0.0f, 0.0f, 0.0f };
 
 namespace
 {
-    // --------------- Window Title & Movement Constants -------------
-    constexpr char const* kWindowTitle = "COMP3811 - CW2";
-
-    constexpr float kMovementPerSecond_ = 5.f;     // movement units per second
-    constexpr float kMouseSensitivity_  = 0.01f;   // radians per pixel
-
-    constexpr float rocketAcceleration_ = 0.1f;
-
-    using Clock    = std::chrono::high_resolution_clock;
-    using Secondsf = std::chrono::duration<float>;
-
-    // --------------- Camera Mode ---------------
+    // Basic camera mode
     enum class CameraMode {
         FREE = 0,
         CHASE,
         GROUND
     };
 
-    // --------------- Program State ---------------
+    // Basic window/camera config
+    constexpr char const* kWindowTitle = "COMP3811 - CW2 (Separate Particle Shaders)";
+    constexpr float kMovementPerSecond_ = 5.f;
+    constexpr float kMouseSensitivity_ = 0.01f;
+    constexpr float rocketAcceleration_ = 0.1f;
+
+    using Clock = std::chrono::high_resolution_clock;
+    using Secondsf = std::chrono::duration<float>;
+
+    // -------------- Structures for your state --------------
     struct State_
     {
-        ShaderProgram* prog = nullptr;
+        // Two separate programs: one for geometry, one for particles
+        ShaderProgram* geomProg = nullptr;
+        ShaderProgram* particleProg = nullptr;
 
-        // Split-screen
         bool isSplitScreen = false;
 
-        // We have two camera modes, one for each subview
+        // Camera modes
         CameraMode cameraMode1 = CameraMode::FREE;
         CameraMode cameraMode2 = CameraMode::CHASE;
 
-        // Each camera has its own control
         struct CamCtrl_
         {
-            float FAST_SPEED_MULT  = 2.f;
-            float SLOW_SPEED_MULT  = 0.1f;
-            float NORMAL_SPEED_MULT= 0.5f;
+            float FAST_SPEED_MULT = 2.f;
+            float SLOW_SPEED_MULT = 0.1f;
+            float NORMAL_SPEED_MULT = 0.5f;
 
             bool movingForward = false;
-            bool movingBack    = false;
-            bool movingLeft    = false;
-            bool movingRight   = false;
-            bool movingUp      = false;
-            bool movingDown    = false;
+            bool movingBack = false;
+            bool movingLeft = false;
+            bool movingRight = false;
+            bool movingUp = false;
+            bool movingDown = false;
 
-            // Orientation
-            Vec4f position = { 0.0f, 5.0f, 0.0f, 1.0f };
-            Vec4f forward  = { 0.0f, 0.0f, -1.0f, 0.0f };
-            Vec4f right    = { 1.0f, 0.0f, 0.0f, 0.0f };
-            Vec4f up       = { 0.0f, 1.0f, 0.0f, 0.0f };
+            Vec4f position = { 0.f,5.f,0.f,1.f };
+            Vec4f forward = { 0.f,0.f,-1.f,0.f };
+            Vec4f right = { 1.f,0.f,0.f,0.f };
+            Vec4f up = { 0.f,1.f,0.f,0.f };
 
-            bool cameraActive    = false;
-            bool actionZoomIn    = false;
-            bool actionZoomOut   = false;
+            bool cameraActive = false;
+            bool actionZoomIn = false, actionZoomOut = false;
 
-            float phi   = 0.0f;  // yaw
-            float theta = 0.0f;  // pitch
-            float radius= 10.f;
-            float speed_multiplier= NORMAL_SPEED_MULT;
+            float phi = 0.f, theta = 0.f;
+            float radius = 10.f;
+            float speed_multiplier = NORMAL_SPEED_MULT;
 
-            float lastX=0.f, lastY=0.f, lastTheta=0.f;
+            float lastX = 0.f, lastY = 0.f, lastTheta = 0.f;
         };
 
-        CamCtrl_ cam1;  // First camera controls
-        CamCtrl_ cam2;  // Second camera controls
+        CamCtrl_ cam1;
+        CamCtrl_ cam2;
 
-        // -------------- Point Lights --------------
+        // For lighting
         struct PointLight {
-            Vec3f position;  
-            float padding1;  
-            Vec3f color;     
-            float padding2;  
-            Vec3f normals;   
-            float radius;    
+            Vec3f position;
+            float padding1;
+            Vec3f color;
+            float padding2;
+            Vec3f normals;
+            float radius;
         };
-
         struct PointLightBlock {
             PointLight lights[MAX_POINT_LIGHTS];
         };
 
-        // -------------- Rocket State --------------
+        // Rocket
         struct rcktCtrl_ {
             Vec3f position = rocketStartPos;
-            Vec3f velocity = { 0.f, 0.f, 0.f };
+            Vec3f velocity = { 0.f,0.f,0.f };
             Mat44f model2worldRocket = kIdentity44f;
             float acceleration = rocketAcceleration_;
             float time = 0.f;
             bool isMoving = false;
-            float pitch=0.f, yaw=0.f;
-
-            Mat44f translationMatrix;
-            Mat44f rotation;
+            float pitch = 0.f, yaw = 0.f;
 
             void reset() {
                 model2worldRocket = kIdentity44f;
                 position = rocketStartPos;
-                velocity = { 0.0f, 0.0f, 0.0f };
+                velocity = { 0.f,0.f,0.f };
                 acceleration = rocketAcceleration_;
-                time=0.f;
-                isMoving=false;
-                pitch=0.f;
+                time = 0.f;
+                isMoving = false;
+                pitch = 0.f;
             }
         } rcktCtrl;
 
-        float chaseDistance = 1.0f;            
-        Vec3f groundCameraPos = { -5.f, 1.0f, 0.f };
+        float chaseDistance = 1.0f;
+        Vec3f groundCameraPos = { -5.f,1.0f,0.f };
     };
 
-    // ------------------ Function Declarations ------------------
+    // -------------- Particles --------------
+    struct Particle {
+        Vec3f position;
+        Vec3f velocity;
+        float life;
+        bool active;
+    };
+    static Particle gParticles[kMaxParticles];
+    static GLuint gParticleVAO = 0, gParticleVBO = 0;
+    static GLuint gParticleTex = 0; // alpha texture
+
+    // -------------- Function prototypes --------------
+    void initParticleSystem();
+    void spawnParticle(const Vec3f& pos, const Vec3f& dir);
+    void updateParticleSystem(float dt);
+    void renderParticles(GLuint progId, const Mat44f& view, const Mat44f& proj);
+
+    // For user input callbacks
     void glfw_callback_error_(int, char const*);
     void glfw_callback_key_(GLFWwindow*, int, int, int, int);
     void glfw_callback_motion_(GLFWwindow*, double, double);
     void mouse_button_callback(GLFWwindow*, int, int, int);
 
+    // For rocket & camera
     void updateCamera(State_::CamCtrl_& camera, float dt);
     void updateRocket(State_::rcktCtrl_& rocket, float dt);
 
-    Mat44f compute_view_matrix_for_camera(const State_::CamCtrl_& camCtrl,
-                                          CameraMode mode,
-                                          const State_& state);
+    // For building the camera matrix
+    Mat44f compute_view_matrix_for_camera(const State_::CamCtrl_& cam, CameraMode mode, const State_& st);
 
+    // For lights
     GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos);
-
     void updatePointLights(Mat44f rocketPosition, SimpleMeshData rocketData, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
+    void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
 
-    void updatePointLightUBO(GLuint pointLightUBO,
-                             State_::PointLight pointLights[MAX_POINT_LIGHTS]);
+    // For your geometry rendering
+    void renderScene(const State_& st,
+        const Mat44f& view,
+        const Mat44f& proj,
+        GLuint langersoVao, const SimpleMeshData& langersoMesh, GLuint langersoTex, size_t langersoCount,
+        GLuint rocketVao, const SimpleMeshData& rocketMesh, size_t rocketCount,
+        GLuint launchpadVao, const SimpleMeshData& launchpadMesh, size_t launchpadCount);
 
-    // This function: draws the entire scene for one camera's view+proj
-    void renderScene(const State_& state,
-                     const Mat44f& view,
-                     const Mat44f& projection,
-                     // Below are references to the various VAOs & meshes:
-                     GLuint langersoVao, const SimpleMeshData& langersoMesh, GLuint langersoTextureId, size_t langersoCount,
-                     GLuint rocketVao,   const SimpleMeshData& rocketMesh,   size_t rocketCount,
-                     GLuint launchpadVao, const SimpleMeshData& launchpadMesh, size_t launchpadCount);
-
-    // RAII-like helpers
-    struct GLFWCleanupHelper
-    {
+    // RAII
+    struct GLFWCleanupHelper {
         ~GLFWCleanupHelper() { glfwTerminate(); }
     };
-    struct GLFWWindowDeleter
-    {
-        ~GLFWWindowDeleter() { if(window) glfwDestroyWindow(window); }
+    struct GLFWWindowDeleter {
+        ~GLFWWindowDeleter() { if (window) glfwDestroyWindow(window); }
         GLFWwindow* window;
     };
 
+} // end anonymous namespace
+
+//-------------------------------------------
+// main
+//-------------------------------------------
+int main() try
+{
+    if (GLFW_TRUE != glfwInit()) {
+        char const* msg = nullptr;
+        int e = glfwGetError(&msg);
+        throw Error("glfwInit() failed with '%s' (%d)", msg, e);
+    }
+    GLFWCleanupHelper cleanupGLFW;
+
+    glfwSetErrorCallback(&glfw_callback_error_);
+
+    // Create window
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#   if !defined(NDEBUG)
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+#   endif
+
+    GLFWwindow* window = glfwCreateWindow(1280, 720, kWindowTitle, nullptr, nullptr);
+    if (!window) {
+        char const* msg = nullptr;
+        int e = glfwGetError(&msg);
+        throw Error("glfwCreateWindow failed with '%s' (%d)", msg, e);
+    }
+    GLFWWindowDeleter windowDeleter{ window };
+
+    // set user pointer
+    State_ state{};
+    glfwSetWindowUserPointer(window, &state);
+
+    glfwSetKeyCallback(window, &glfw_callback_key_);
+    glfwSetCursorPosCallback(window, &glfw_callback_motion_);
+    glfwSetMouseButtonCallback(window, &mouse_button_callback);
+
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        throw Error("Failed to init GLAD!");
+    }
+
+    // Debug info
+    std::printf("RENDERER %s\n", glGetString(GL_RENDERER));
+    std::printf("VENDOR %s\n", glGetString(GL_VENDOR));
+    std::printf("VERSION %s\n", glGetString(GL_VERSION));
+    std::printf("SHADING_LANGUAGE_VERSION %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+#   if !defined(NDEBUG)
+    setup_gl_debug_output();
+#   endif
+
+    glClearColor(0.2f, 0.2f, 0.2f, 1.f);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_FRAMEBUFFER_SRGB);
+
+    // Framebuffer size
+    int iwidth, iheight;
+    glfwGetFramebufferSize(window, &iwidth, &iheight);
+    glViewport(0, 0, iwidth, iheight);
+
+    // 1) Build geometry program from your "default" shaders
+    ShaderProgram geomProg({
+        { GL_VERTEX_SHADER,   "assets/cw2/default.vert" },
+        { GL_FRAGMENT_SHADER, "assets/cw2/default.frag" }
+        });
+    state.geomProg = &geomProg;
+
+    // 2) Build a *separate* program for particles
+    ShaderProgram particleProg({
+        { GL_VERTEX_SHADER,   "assets/cw2/particle.vert" },
+        { GL_FRAGMENT_SHADER, "assets/cw2/particle.frag" }
+        });
+    state.particleProg = &particleProg;
+
+    // 3) Load your geometry/meshes (example)
+    auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str(), true);
+    GLuint langersoVao = create_vao(langersoMesh);
+    GLuint langersoTex = load_texture_2d(LANGERSO_TEXTURE_ASSET_PATH.c_str());
+    size_t langersoCount = langersoMesh.positions.size();
+
+    auto launchpadMesh = load_wavefront_obj(
+        LAUNCHPAD_OBJ_ASSET_PATH.c_str(),
+        false,
+        make_translation({ 2.f,0.005f,-2.f }) * make_scaling(0.5f, 0.5f, 0.5f)
+    );
+    GLuint launchpadVao = create_vao(launchpadMesh);
+    size_t launchpadCount = launchpadMesh.positions.size();
+
+    auto rocketMesh = create_spaceship(
+        32,
+        { 0.2f,0.2f,0.2f }, { 0.8f,0.2f,0.2f },
+        make_translation({ 2.f,0.15f,-2.f }) * make_scaling(0.05f, 0.05f, 0.05f),
+        false
+    );
+    GLuint rocketVao = create_vao(rocketMesh);
+    size_t rocketCount = rocketMesh.positions.size();
+
+    // 4) Lights
+    State_::PointLight pointLights[MAX_POINT_LIGHTS];
+    GLuint pointLightUBO = setPointLights(pointLights, rocketMesh);
+
+    // 5) Particle system init
+    initParticleSystem();
+
+    // 6) main loop
+    auto last = std::chrono::high_resolution_clock::now();
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
+
+        int w, h;
+        glfwGetFramebufferSize(window, &w, &h);
+        if (w <= 0 || h <= 0) {
+            do {
+                glfwWaitEvents();
+                glfwGetFramebufferSize(window, &w, &h);
+            } while (w <= 0 || h <= 0);
+        }
+        glViewport(0, 0, w, h);
+
+        auto now = Clock::now();
+        float dt = std::chrono::duration_cast<Secondsf>(now - last).count();
+        last = now;
+
+        // update rocket/cameras
+        updateCamera(state.cam1, dt);
+        updateCamera(state.cam2, dt);
+        updateRocket(state.rcktCtrl, dt);
+
+        // spawn particles if rocket is moving
+        if (state.rcktCtrl.isMoving) {
+            Vec3f rocketForwardWS = { 0.f,1.f,0.f }; // or from orientation
+            Vec3f exhaustPos = state.rcktCtrl.position - 0.2f * rocketForwardWS;
+            for (int i = 0; i < 10; i++) {
+                spawnParticle(exhaustPos, rocketForwardWS);
+            }
+        }
+
+        updateParticleSystem(dt);
+
+        // update lights
+        updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh, pointLights);
+        updatePointLightUBO(pointLightUBO, pointLights);
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Decide how to do cameras
+        if (!state.isSplitScreen) {
+            Mat44f proj = make_perspective_projection(
+                60.f * std::numbers::pi_v<float> / 180.f,
+                float(w) / float(h),
+                0.1f, 100.f
+            );
+            Mat44f view = compute_view_matrix_for_camera(state.cam1, state.cameraMode1, state);
+
+            // Geometry pass with geomProg
+            renderScene(state, view, proj,
+                langersoVao, langersoMesh, langersoTex, langersoCount,
+                rocketVao, rocketMesh, rocketCount,
+                launchpadVao, launchpadMesh, launchpadCount);
+
+            // Particle pass with particleProg
+            renderParticles(particleProg.programId(), view, proj);
+        }
+        else {
+            // Split screen
+            // bottom half
+            glViewport(0, 0, w, h / 2);
+
+            Mat44f proj1 = make_perspective_projection(
+                60.f * std::numbers::pi_v<float> / 180.f,
+                float(w) / float(h / 2),
+                0.1f, 100.f
+            );
+            Mat44f view1 = compute_view_matrix_for_camera(state.cam1, state.cameraMode1, state);
+
+            renderScene(state, view1, proj1,
+                langersoVao, langersoMesh, langersoTex, langersoCount,
+                rocketVao, rocketMesh, rocketCount,
+                launchpadVao, launchpadMesh, launchpadCount);
+
+            renderParticles(particleProg.programId(), view1, proj1);
+
+            // top half
+            glViewport(0, h / 2, w, h / 2);
+
+            Mat44f proj2 = make_perspective_projection(
+                60.f * std::numbers::pi_v<float> / 180.f,
+                float(w) / float(h / 2),
+                0.1f, 100.f
+            );
+            Mat44f view2 = compute_view_matrix_for_camera(state.cam2, state.cameraMode2, state);
+
+            renderScene(state, view2, proj2,
+                langersoVao, langersoMesh, langersoTex, langersoCount,
+                rocketVao, rocketMesh, rocketCount,
+                launchpadVao, launchpadMesh, launchpadCount);
+
+            renderParticles(particleProg.programId(), view2, proj2);
+        }
+
+        glfwSwapBuffers(window);
+    }
+
+    state.geomProg = nullptr;
+    state.particleProg = nullptr;
+    return 0;
+}
+catch (std::exception const& e) {
+    std::fprintf(stderr, "Top-level Error: %s\n", e.what());
+    return 1;
+}
+
+
+// ---------------------------------------------------
+// Implementation of the rest
+// ---------------------------------------------------
+namespace
+{
+    // ******** Particle system code ********
+    void initParticleSystem()
+    {
+        std::srand(unsigned(std::time(nullptr)));
+
+        glGenVertexArrays(1, &gParticleVAO);
+        glBindVertexArray(gParticleVAO);
+
+        glGenBuffers(1, &gParticleVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, gParticleVBO);
+        glBufferData(GL_ARRAY_BUFFER, kMaxParticles * sizeof(Vec3f),
+            nullptr, GL_DYNAMIC_DRAW);
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3f), (void*)0);
+
+        glBindVertexArray(0);
+
+        gParticleTex = load_texture_2d(PARTICLE_TEXTURE_PATH.c_str());
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+        glEnable(GL_PROGRAM_POINT_SIZE);
+
+        for (size_t i = 0; i < kMaxParticles; i++) {
+            gParticles[i].active = false;
+        }
+    }
+
+    void spawnParticle(const Vec3f& pos, const Vec3f& dir)
+    {
+        for (size_t i = 0; i < kMaxParticles; i++) {
+            if (!gParticles[i].active) {
+                gParticles[i].active = true;
+                gParticles[i].position = pos;
+                float spread = 0.2f;
+                Vec3f rnd = dir + Vec3f(float(std::rand()) / RAND_MAX * 2.f * spread - spread,
+                    float(std::rand()) / RAND_MAX * 2.f * spread - spread,
+                    float(std::rand()) / RAND_MAX * 2.f * spread - spread);
+                rnd = normalize(rnd);
+                gParticles[i].velocity = rnd * 3.f;
+                gParticles[i].life = 2.f;
+                return;
+            }
+        }
+    }
+
+    void updateParticleSystem(float dt)
+    {
+        for (size_t i = 0; i < kMaxParticles; i++) {
+            if (!gParticles[i].active) continue;
+            gParticles[i].position += gParticles[i].velocity * dt;
+            gParticles[i].life -= dt;
+            if (gParticles[i].life <= 0.f) {
+                gParticles[i].active = false;
+            }
+        }
+    }
+
+    void renderParticles(GLuint progId, const Mat44f& view, const Mat44f& proj)
+    {
+        glUseProgram(progId);
+
+        GLint locView = glGetUniformLocation(progId, "uView");
+        GLint locProj = glGetUniformLocation(progId, "uProj");
+        GLint locTex = glGetUniformLocation(progId, "uTex");
+
+        if (locView >= 0) glUniformMatrix4fv(locView, 1, GL_TRUE, view.v);
+        if (locProj >= 0) glUniformMatrix4fv(locProj, 1, GL_TRUE, proj.v);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gParticleTex);
+        if (locTex >= 0) glUniform1i(locTex, 0);
+
+        static std::vector<Vec3f> positions(kMaxParticles);
+        size_t count = 0;
+        for (size_t i = 0; i < kMaxParticles; i++) {
+            if (!gParticles[i].active) continue;
+            positions[count++] = gParticles[i].position;
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, gParticleVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, count * sizeof(Vec3f), positions.data());
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glBindVertexArray(gParticleVAO);
+        glDrawArrays(GL_POINTS, 0, (GLsizei)count);
+    }
+
+    // ******* Rocket & camera code *******
+    void updateCamera(State_::CamCtrl_& c, float dt)
+    {
+        float speed = kMovementPerSecond_ * dt * c.speed_multiplier;
+        c.forward = Vec4f{
+            std::sin(c.phi) * std::cos(c.theta),
+            -std::sin(c.theta),
+            -std::cos(c.phi) * std::cos(c.theta),
+            0.f
+        };
+        c.right = normalize(cross(c.forward, Vec4f{ 0.f,1.f,0.f,0.f }));
+        c.up = cross(c.right, c.forward);
+
+        Vec4f movement(0, 0, 0, 0);
+        if (c.movingForward) movement += c.forward * speed;
+        if (c.movingBack)    movement -= c.forward * speed;
+        if (c.movingRight)   movement += c.right * speed;
+        if (c.movingLeft)    movement -= c.right * speed;
+        if (c.movingUp)      movement += c.up * speed;
+        if (c.movingDown)    movement -= c.up * speed;
+        c.position += movement;
+    }
+
+    void updateRocket(State_::rcktCtrl_& rocket, float dt)
+    {
+        if (!rocket.isMoving) return;
+
+        rocket.time += dt;
+        Vec3f prev = rocket.position;
+
+        // Some logic
+        if (rocket.time <= 5.f) {
+            rocket.velocity.y += 2.f * dt;
+        }
+        else {
+            rocket.velocity += normalize(Vec3f(3.f, 1.f, -3.5f)) * dt * rocket.acceleration;
+        }
+
+        rocket.position += rocket.velocity * dt;
+
+        Vec3f dir = rocket.position - prev;
+        if (length(dir) > 1e-3f) {
+            dir = normalize(dir);
+        }
+
+        float pitch = atan2(dir.z, sqrt(dir.x * dir.x + dir.y * dir.y));
+        float yaw = atan2(dir.x, dir.y);
+
+        Mat44f rotPitch = make_rotation_x(pitch);
+        Mat44f rotYaw = make_rotation_z(-yaw);
+        Mat44f rotation = rotYaw * rotPitch;
+        Mat44f transl = make_translation(rocket.position);
+        rocket.model2worldRocket = transl * rotation;
+    }
+
+    // ******* camera logic *******
+    Mat44f compute_view_matrix_for_camera(const State_::CamCtrl_& cam, CameraMode mode, const State_& st)
+    {
+        switch (mode)
+        {
+        case CameraMode::FREE:
+            return make_look_at(
+                cam.position,
+                cam.position + cam.forward,
+                cam.up
+            );
+        case CameraMode::CHASE:
+        {
+            auto& rocketPos = st.rcktCtrl.position;
+            Vec3f chasePos = rocketPos - Vec3f{ 0.f,0.f,1.f }*st.chaseDistance + Vec3f{ 0.f,1.f,0.f };
+            return make_look_at(
+                Vec4f{ chasePos.x,chasePos.y,chasePos.z,1.f },
+                Vec4f{ rocketPos.x + 1.47f,rocketPos.y,rocketPos.z - 1.2f,1.f },
+                Vec4f{ 0.f,1.f,0.f,0.f }
+            );
+        }
+        case CameraMode::GROUND:
+        {
+            auto& rp = st.rcktCtrl.position;
+            Vec4f rocketPos4 = { rp.x + 1.47f,rp.y,rp.z - 1.2f,1.f };
+            Vec4f groundPos4 = { st.groundCameraPos.x, st.groundCameraPos.y, st.groundCameraPos.z,1.f };
+            return make_look_at(groundPos4, rocketPos4, Vec4f{ 0.f,1.f,0.f,0.f });
+        }
+        }
+        return kIdentity44f;
+    }
+
+    // ******* Lights *******
+    GLuint setPointLights(State_::PointLight pls[MAX_POINT_LIGHTS], SimpleMeshData rocketPos)
+    {
+        pls[0].position = rocketPos.pointLightPos[0];
+        pls[0].color = Vec3f{ 1.f,0.f,0.f };
+        pls[0].radius = 1.f;
+        pls[0].normals = rocketPos.pointLightNorms[0];
+        // likewise for [1] & [2], etc.
+
+        GLuint ubo;
+        glGenBuffers(1, &ubo);
+        glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+
+        State_::PointLightBlock block;
+        for (int i = 0; i < MAX_POINT_LIGHTS; i++) {
+            block.lights[i] = pls[i];
+        }
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(block), &block, GL_STATIC_DRAW);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 1, ubo);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        return ubo;
+    }
+
+    void updatePointLights(Mat44f rocketPos, SimpleMeshData rocketData, State_::PointLight pls[MAX_POINT_LIGHTS])
+    {
+        Mat33f N = mat44_to_mat33(transpose(invert(rocketPos)));
+        for (int i = 0; i < MAX_POINT_LIGHTS; i++) {
+            pls[i].position = rocketData.pointLightPos[i];
+            // transform if you want
+            pls[i].normals = normalize(N * rocketData.pointLightNorms[i]);
+        }
+    }
+
+    void updatePointLightUBO(GLuint ubo, State_::PointLight pls[MAX_POINT_LIGHTS])
+    {
+        State_::PointLightBlock block;
+        for (int i = 0; i < MAX_POINT_LIGHTS; i++) {
+            block.lights[i] = pls[i];
+        }
+        glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(block), &block);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+
+    // ******* renderScene *******
+    void renderScene(const State_& st,
+        const Mat44f& view,
+        const Mat44f& proj,
+        GLuint langersoVao, const SimpleMeshData& langersoMesh,
+        GLuint langersoTex, size_t langersoCount,
+        GLuint rocketVao, const SimpleMeshData& rocketMesh, size_t rocketCount,
+        GLuint launchpadVao, const SimpleMeshData& launchpadMesh, size_t launchpadCount)
+    {
+        // Use geometry program
+        glUseProgram(st.geomProg->programId());
+
+        // set common uniforms
+        // e.g. light direction, etc.
+        Vec3f lightDir = normalize(Vec3f{ 0.f,1.f,-1.f });
+        glUniform3fv(2, 1, &lightDir.x);
+        glUniform3f(3, 0.678f, 0.847f, 0.902f);
+        glUniform3f(4, 0.05f, 0.05f, 0.05f);
+
+        // For each object (langerso, rocket, launchpad),
+        // we build the model->world->view->proj matrix
+        // and send it to your default shaders
+
+        // 1) Langerso
+        {
+            Mat44f model2world = kIdentity44f;
+            Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
+            Mat44f mvp = proj * view * model2world;
+
+            glUniformMatrix4fv(0, 1, GL_TRUE, mvp.v);
+            glUniformMatrix3fv(1, 1, GL_TRUE, normalMatrix.v);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, langersoTex);
+            glUniform1i(5, langersoMesh.isTextureSupplied);
+
+            glUniform2f(6, langersoMesh.mins.x, langersoMesh.mins.y);
+            glUniform2f(7, langersoMesh.diffs.x, langersoMesh.diffs.y);
+
+            glBindVertexArray(langersoVao);
+            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)langersoCount);
+
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
+
+        // 2) Rocket
+        {
+            // e.g. rocket transform from st.rcktCtrl
+            Mat44f model2world = st.rcktCtrl.model2worldRocket;
+            Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
+            Mat44f mvp = proj * view * model2world;
+
+            glUniformMatrix4fv(0, 1, GL_TRUE, mvp.v);
+            glUniformMatrix3fv(1, 1, GL_TRUE, normalMatrix.v);
+            glUniform1i(5, rocketMesh.isTextureSupplied);
+
+            glBindVertexArray(rocketVao);
+            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)rocketCount);
+        }
+
+        // 3) Launchpad #1
+        {
+            Mat44f model2world = kIdentity44f;
+            Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
+            Mat44f mvp = proj * view * model2world;
+
+            glUniformMatrix4fv(0, 1, GL_TRUE, mvp.v);
+            glUniformMatrix3fv(1, 1, GL_TRUE, normalMatrix.v);
+            glUniform1i(5, launchpadMesh.isTextureSupplied);
+
+            glBindVertexArray(launchpadVao);
+            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
+        }
+
+        // 4) Launchpad #2 
+        {
+            Mat44f model2world = make_translation({ 3.f,0.f,-5.f });
+            Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
+            Mat44f mvp = proj * view * model2world;
+
+            glUniformMatrix4fv(0, 1, GL_TRUE, mvp.v);
+            glUniformMatrix3fv(1, 1, GL_TRUE, normalMatrix.v);
+            glUniform1i(5, launchpadMesh.isTextureSupplied);
+
+            glBindVertexArray(launchpadVao);
+            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
+        }
+    }
+
+    // ********** Callbacks for input (just stubs or partial) **********
     void glfw_callback_error_(int aErrNum, char const* aErrDesc)
     {
         std::fprintf(stderr, "GLFW error: %s (%d)\n", aErrDesc, aErrNum);
@@ -226,7 +772,7 @@ namespace
             // Press Shift + C to cycle camera 2's mode:
             if (aKey == GLFW_KEY_C && (mods & GLFW_MOD_SHIFT) && aAction == GLFW_PRESS) {
                 switch (state->cameraMode2) {
-                //case CameraMode::FREE:   state->cameraMode2 = CameraMode::CHASE;   break;
+                    //case CameraMode::FREE:   state->cameraMode2 = CameraMode::CHASE;   break;
                 case CameraMode::CHASE:  state->cameraMode2 = CameraMode::GROUND; break;
                 case CameraMode::GROUND: state->cameraMode2 = CameraMode::CHASE;   break;
                 }
@@ -238,8 +784,9 @@ namespace
             }
             // R-key reloads shaders.
             if (GLFW_KEY_R == aKey && GLFW_PRESS == aAction) {
-                if (state->prog) {
-                    state->rcktCtrl.reset();
+                state->rcktCtrl.reset();
+               /* if (state->prog) {
+                    
                     try {
                         state->prog->reload();
                         std::fprintf(stderr, "Shaders reloaded and recompiled.\n");
@@ -249,7 +796,7 @@ namespace
                         std::fprintf(stderr, "%s\n", eErr.what());
                         std::fprintf(stderr, "Keeping old shader.\n");
                     }
-                }
+                }*/
             }
 
             // Handle WASD keys for cam1:
@@ -340,644 +887,4 @@ namespace
         }
     }
 
-
-    // Function to update camera position based on movement
-    void updateCamera(State_::CamCtrl_& camera, float dt)
-    {
-        // Calculate movement speed
-        float moveSpeed = kMovementPerSecond_ * dt * camera.speed_multiplier;
-
-        // Update forward and right vectors based on phi (yaw) and theta (pitch)
-        camera.forward = Vec4f{
-            std::sin(camera.phi) * std::cos(camera.theta),
-            -std::sin(camera.theta),
-            -std::cos(camera.phi) * std::cos(camera.theta),
-            0.0f
-        };
-
-        // Debugger statements
-        //std::cout << "phi: " << camera.phi << "		sin(phi) = " << sin(camera.phi) << "		cos(phi) = " << cos(camera.phi) << std::endl;
-        //std::cout << "theta: " << camera.theta << "		sin(theta) = " << sin(camera.theta) << "		cos(theta) = " << cos(camera.theta) << "\n" << std::endl;
-
-        // Calculate right vector by crossing forward with world up
-        camera.right = cross(camera.forward, Vec4f{ 0.0f, 1.0f, 0.0f, 0.0f });
-        camera.right = normalize(camera.right);
-
-        // Calculate actual up vector
-        camera.up = cross(camera.right, camera.forward);
-
-        // Apply movement
-        Vec4f movement{ 0.0f, 0.0f, 0.0f, 0.0f };
-
-        if (camera.movingForward)
-            movement = movement + camera.forward * moveSpeed;
-        if (camera.movingBack)
-            movement = movement - camera.forward * moveSpeed;
-        if (camera.movingRight)
-            movement = movement + camera.right * moveSpeed;
-        if (camera.movingLeft)
-            movement = movement - camera.right * moveSpeed;
-        if (camera.movingUp)
-            movement = movement + camera.up * moveSpeed;
-        if (camera.movingDown)
-            movement = movement - camera.up * moveSpeed;
-
-        // Update position
-        camera.position = camera.position + movement;
-
-        /*std::cout << "Camera position: ("
-            << camera.position.x << ", "
-            << camera.position.y << ", "
-            << camera.position.z << ", "
-            << camera.position.w << ")\n";*/
-
-    }
-
-    GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos)
-    {
-        // Update point light data with larger radius values
-        pointLights[0].position = rocketPos.pointLightPos[0];
-        pointLights[0].radius = 1.0f;        // Increased radius significantly
-        pointLights[0].color = Vec3f{ 1.f, 0.f, 0.f }; // Red
-        pointLights[0].normals = rocketPos.pointLightNorms[0];
-
-        pointLights[1].position = rocketPos.pointLightPos[1];
-        pointLights[1].radius = 1.0f;
-        pointLights[1].color = Vec3f{ 0.f, 1.f, 0.f }; // Green
-        pointLights[1].normals = rocketPos.pointLightNorms[1];
-
-        pointLights[2].position = rocketPos.pointLightPos[2];
-        pointLights[2].radius = 1.0f;
-        pointLights[2].color = Vec3f{ 0.f, 0.f, 1.f }; // Blue
-        pointLights[2].normals = rocketPos.pointLightNorms[2];
-
-        for (size_t i = 0; i < MAX_POINT_LIGHTS; ++i)
-        {
-            std::cout << "Point Light " << i << " Position: ("
-                << pointLights[i].position.x << ", "
-                << pointLights[i].position.y << ", "
-                << pointLights[i].position.z << ")\n";
-        }
-
-        // Create and setup UBO
-        GLuint pointLightUBO;
-        glGenBuffers(1, &pointLightUBO);
-        glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
-
-        // Allocate and initialize buffer in one step
-        State_::PointLightBlock pointLightData;
-        for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
-            pointLightData.lights[i] = pointLights[i];
-        }
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(State_::PointLightBlock), &pointLightData, GL_STATIC_DRAW);
-
-        // Bind to uniform buffer binding point
-        glBindBufferBase(GL_UNIFORM_BUFFER, 1, pointLightUBO);
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-        return pointLightUBO;
-    }
-
-    void updatePointLights(Mat44f rocketPosition, SimpleMeshData rocketData, State_::PointLight pointLights[MAX_POINT_LIGHTS])
-    {
-        Mat33f const N = mat44_to_mat33(transpose(invert(rocketPosition)));
-        for (int i = 0; i < MAX_POINT_LIGHTS; ++i)
-        {
-            // Transform light positions with rocket matrix
-            Vec4f transformedPos = rocketPosition * Vec4f{ rocketData.pointLightPos[i].x, rocketData.pointLightPos[i].y, rocketData.pointLightPos[i].z, 1.0f };
-            Vec3f transformedNorm = normalize(N * rocketData.pointLightNorms[i]);
-
-            pointLights[i].position = rocketData.pointLightPos[i];
-            pointLights[i].normals = transformedNorm;
-
-            //std::cout << "Before - Position: (" << rocketData.pointLightPos[i].x << ", " << rocketData.pointLightPos[i].y << ", " << rocketData.pointLightPos[i].z << ")" << ", Normal: (" << rocketData.pointLightNorms[i].x << ", " << rocketData.pointLightNorms[i].y << ", " << rocketData.pointLightNorms[i].z << ")\n"; std::cout << "After - Position: (" << transformedPos.x << ", " << transformedPos.y << ", " << transformedPos.z << ")" << ", Normal: (" << transformedNorm.x << ", " << transformedNorm.y << ", " << transformedNorm.z << ")\n";
-
-            // Maintain other properties that were set in setPointLights
-            if (i == 0) {
-                pointLights[i].color = Vec3f{ 1.f, 0.f, 0.f }; // Red
-            }
-            else if (i == 1) {
-                pointLights[i].color = Vec3f{ 0.f, 1.f, 0.f }; // Green
-            }
-            else {
-                pointLights[i].color = Vec3f{ 0.f, 0.f, 1.f }; // Blue
-            }
-            pointLights[i].radius = 1.0f;
-        }
-    }
-
-    void updatePointLightUBO(GLuint pointLightUBO, State_::PointLight pointLights[MAX_POINT_LIGHTS])
-    {
-        State_::PointLightBlock pointLightData;
-        for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
-            pointLightData.lights[i] = pointLights[i];
-        }
-
-        // Debugging
-        /*for (size_t i = 0; i < MAX_POINT_LIGHTS; ++i)
-        {
-            std::cout << "Point Light " << i << " Position: ("
-                << pointLights[i].position.x << ", "
-                << pointLights[i].position.y << ", "
-                << pointLights[i].position.z << ")\n";
-        }*/
-
-
-        // Update the buffer without recreating it
-        glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(State_::PointLightBlock), &pointLightData);
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    }
-
-
-    Mat44f compute_view_matrix_for_camera(const State_::CamCtrl_& camCtrl, CameraMode mode, const State_& state)
-    {
-        switch (mode) {
-        case CameraMode::FREE: {
-            return make_look_at(
-                camCtrl.position,
-                camCtrl.position + camCtrl.forward,
-                camCtrl.up
-            );
-        }
-
-        // (2) Chase camera
-        case CameraMode::CHASE:
-        {
-            // Chase from behind the rocket at a fixed distance
-            auto const& rocketPos = state.rcktCtrl.position;
-
-            Vec3f rocketForwardWS = { 0.f, 0.f, -1.f };
-
-            // Position the chase camera behind and slightly above rocket
-            Vec3f chaseCamPos = rocketPos - rocketForwardWS * state.chaseDistance + Vec3f{ 0.f, 1.f, 0.f };
-            Vec4f chaseCamPos4 = { chaseCamPos.x, chaseCamPos.y, chaseCamPos.z, 1.f };
-
-            // Look towards rocket
-            Vec4f rocketPos4 = { rocketPos.x + 1.47f , rocketPos.y, rocketPos.z - 1.20f, 1.f };
-
-            return make_look_at(
-                chaseCamPos4,
-                rocketPos4,
-                Vec4f{ 0.f, 1.f, 0.f, 0.f }  // world-up
-            );
-        }
-
-        // (3) Ground camera
-        case CameraMode::GROUND:
-        {
-            // Always stay at groundCameraPos, look at rocket.
-            auto const& rocketPos = state.rcktCtrl.position;
-            Vec4f rocketPos4 = { rocketPos.x + 1.47f , rocketPos.y, rocketPos.z - 1.20f, 1.f };
-            Vec4f groundPos4 = {
-                state.groundCameraPos.x,
-                state.groundCameraPos.y,
-                state.groundCameraPos.z,
-                1.f
-            };
-
-            return make_look_at(
-                groundPos4,
-                rocketPos4,
-                Vec4f{ 0.f, 1.f, 0.f, 0.f }  // world-up
-            );
-        }
-        }
-
-        // Should never happen, but return identity if logic breaks:
-        return kIdentity44f;
-    }
-
-
-    void updateRocket(State_::rcktCtrl_& rocket, float dt) {
-        if (rocket.isMoving) {
-            // Store previous position for direction calculation
-            Vec3f previousPosition = rocket.position;
-
-            rocket.time += dt;
-
-            // Define the direction vector for the rocket's motion after 5 seconds
-            Vec3f newDirection = normalize(Vec3f(3.0f, 1.0f, -3.5f)); // Example direction vector (change as needed)
-
-            // Initialize the acceleration vector based on the time elapsed
-            Vec3f accelerationVector;
-
-            if (rocket.time <= 5.0f) {
-                // For the first 5 seconds, only the y-component of acceleration is set to 2
-                accelerationVector = normalize(Vec3f(0.0f, 1.0f, 0.0f));
-            }
-            else {
-                // After 5 seconds, scale the direction vector by the desired acceleration magnitude
-                accelerationVector = newDirection * rocket.acceleration;
-            }
-
-            // Update velocity with the calculated acceleration components
-            rocket.velocity.x += accelerationVector.x * dt;
-            rocket.velocity.y += accelerationVector.y * dt;
-            rocket.velocity.z += accelerationVector.z * dt;
-
-            // Update position based on the velocity
-            rocket.position.x += rocket.velocity.x * dt;
-            rocket.position.y += rocket.velocity.y * dt;
-            rocket.position.z += rocket.velocity.z * dt;
-
-            // Calculate the direction of motion
-            Vec3f direction = {
-                rocket.position.x - previousPosition.x,
-                rocket.position.y - previousPosition.y,
-                rocket.position.z - previousPosition.z
-            };
-
-            // Normalize the direction vector to prevent errors when calculating rotation
-            if (length(direction) > 0.001f) {
-                direction = normalize(direction);
-            }
-
-            // Assume the rocket moves primarily along the y-axis (forward direction)
-            Vec3f rocketForward = Vec3f(0.0f, 1.0f, 0.0f);
-
-            // Calculate pitch: angle between the forward direction and the direction vector
-            float pitch = atan2(direction.z, sqrt(direction.x * direction.x + direction.y * direction.y));
-
-            // Calculate yaw: angle in the x-y plane
-            float yaw = atan2(direction.x, direction.y);
-
-            // Debug pitch and yaw for verification
-            /*printf("Pitch: %f radians\n", pitch);
-            printf("Yaw: %f radians\n", yaw);*/
-
-            // Create rotation matrices for pitch and yaw
-            Mat44f rotationMatrixPitch = make_rotation_x(pitch); // Pitch around X-axis
-            Mat44f rotationMatrixYaw = make_rotation_z(-yaw);     // Yaw around Z-axis
-
-            // Combine rotations in the correct order (YPR)
-            Mat44f rotationMatrix = rotationMatrixYaw * rotationMatrixPitch;
-
-            // Translate the rocket to its current position
-            Mat44f translationMatrix = make_translation(rocket.position);
-
-            // Combine translation and rotation into the final model-to-world matrix
-            rocket.model2worldRocket = translationMatrix * rotationMatrix;
-
-
-            // Debug output for verification
-            /*printf("Rocket Time: %f\n", rocket.time);
-            printf("Position: (%f, %f, %f)\n", rocket.position.x, rocket.position.y, rocket.position.z);
-            printf("Velocity: (%f, %f, %f)\n", rocket.velocity.x, rocket.velocity.y, rocket.velocity.z);
-            printf("Direction: (%f, %f, %f)\n", direction.x, direction.y, direction.z);*/
-        }
-    }
 } // end anonymous namespace
-
-
-// ------------------ Main ------------------
-int main() try
-{
-    // Initialize GLFW
-    if (GLFW_TRUE != glfwInit())
-    {
-        char const* msg=nullptr;
-        int ecode = glfwGetError(&msg);
-        throw Error("glfwInit() failed with '%s' (%d)", msg, ecode);
-    }
-    GLFWCleanupHelper cleanupHelper;
-
-    // Error callback
-    glfwSetErrorCallback(&glfw_callback_error_);
-
-    // Window hints
-#   if !defined(__APPLE__)
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,3);
-#   else
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,1);
-#   endif
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT,GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
-
-#   if !defined(NDEBUG)
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,GL_TRUE);
-#   endif
-
-    // Create window
-    GLFWwindow* window = glfwCreateWindow(1280, 720,
-                                          kWindowTitle,
-                                          nullptr,nullptr);
-    if(!window)
-    {
-        char const* msg=nullptr;
-        int ecode = glfwGetError(&msg);
-        throw Error("glfwCreateWindow() failed with '%s' (%d)", msg, ecode);
-    }
-    GLFWWindowDeleter windowDeleter{window};
-
-    // Set up user pointer
-    State_ state{};
-    glfwSetWindowUserPointer(window, &state);
-
-    // Key & mouse callbacks
-    glfwSetKeyCallback(window, &glfw_callback_key_);
-    glfwSetCursorPosCallback(window, &glfw_callback_motion_);
-    glfwSetMouseButtonCallback(window, &mouse_button_callback);
-
-    // Make context current
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // vsync
-
-    // Init GLAD
-    if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-        throw Error("Failed to initialize GLAD!");
-
-    std::printf("RENDERER                   %s\n", glGetString(GL_RENDERER));
-    std::printf("VENDOR                     %s\n", glGetString(GL_VENDOR));
-    std::printf("VERSION                    %s\n", glGetString(GL_VERSION));
-    std::printf("SHADING_LANGUAGE_VERSION   %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
-
-#   if !defined(NDEBUG)
-    setup_gl_debug_output();
-#   endif
-
-    OGL_CHECKPOINT_ALWAYS();
-
-    // Global GL state
-    glClearColor(0.2f,0.2f,0.2f,0.0f);
-    glEnable(GL_FRAMEBUFFER_SRGB);
-    glEnable(GL_DEPTH_TEST);
-    // glEnable(GL_CULL_FACE);
-    // glCullFace(GL_BACK);
-    // glFrontFace(GL_CCW);
-
-    // Framebuffer size
-    int iwidth, iheight;
-    glfwGetFramebufferSize(window, &iwidth, &iheight);
-    glViewport(0,0,iwidth,iheight);
-
-    // Load shader
-    ShaderProgram prog({
-        {GL_VERTEX_SHADER,   "assets/cw2/default.vert"},
-        {GL_FRAGMENT_SHADER, "assets/cw2/default.frag"}
-    });
-    state.prog = &prog;
-
-    // -------------- Load all meshes & textures --------------
-    // Langerso
-    auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str(), true);
-    GLuint langersoVao = create_vao(langersoMesh);
-    GLuint langersoTextureId = load_texture_2d(LANGERSO_TEXTURE_ASSET_PATH.c_str());
-    size_t langersoVertexCount = langersoMesh.positions.size();
-
-    // Launchpad
-    auto launchpadMesh = load_wavefront_obj(
-        LAUNCHPAD_OBJ_ASSET_PATH.c_str(),
-        false,
-        make_translation({ 2.f, 0.005f, -2.f}) * make_scaling(0.5f, 0.5f, 0.5f)
-    );
-    GLuint launchpadVao = create_vao(launchpadMesh);
-    size_t launchpadVertexCount = launchpadMesh.positions.size();
-
-    // Rocket
-    auto rocketMesh = create_spaceship(
-        32,
-        {0.2f, 0.2f, 0.2f}, {0.8f, 0.2f, 0.2f}, // body & fin colors
-        make_translation({2.f,0.15f,-2.f}) * make_scaling(0.05f,0.05f,0.05f),
-        false
-    );
-    GLuint rocketVao = create_vao(rocketMesh);
-    size_t rocketVertexCount = rocketMesh.positions.size();
-
-    // -------------- Set up lights --------------
-    State_::PointLight pointLights[MAX_POINT_LIGHTS];
-    GLuint pointLightUBO = setPointLights(pointLights, rocketMesh);
-
-    OGL_CHECKPOINT_ALWAYS();
-
-    // -------------- Timing variables --------------
-    auto last = Clock::now();
-
-    // Main loop
-    while(!glfwWindowShouldClose(window))
-    {
-        glfwPollEvents();
-
-        // Check for window resizing
-        int w,h;
-        glfwGetFramebufferSize(window, &w, &h);
-        if (w<=0 || h<=0)
-        {
-            // Minimized? wait
-            do {
-                glfwWaitEvents();
-                glfwGetFramebufferSize(window,&w,&h);
-            } while(w<=0 || h<=0);
-        }
-        glViewport(0,0,w,h);
-
-        // Compute dt
-        auto now   = Clock::now();
-        float dt   = std::chrono::duration_cast<Secondsf>(now - last).count();
-        last       = now;
-
-        // Update cameras
-        updateCamera(state.cam1, dt);
-        updateCamera(state.cam2, dt);
-
-        // Update rocket
-        updateRocket(state.rcktCtrl, dt);
-
-        // Update point lights
-        updatePointLights(state.rcktCtrl.model2worldRocket,
-                          rocketMesh,
-                          pointLights);
-        updatePointLightUBO(pointLightUBO, pointLights);
-
-        // Prepare once for entire frame
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // If not split-screen, we do a single render:
-        if (!state.isSplitScreen)
-        {
-            // Build a single projection
-            Mat44f proj = make_perspective_projection(
-                60.f * std::numbers::pi_v<float> / 180.f,
-                float(w)/ float(h),
-                0.1f, 100.f
-            );
-
-            // We'll use camera #1 and its mode for single-view
-            Mat44f view = compute_view_matrix_for_camera(
-                              state.cam1, 
-                              state.cameraMode1, 
-                              state
-                          );
-
-            // Render
-            renderScene(
-                state,
-                view, proj,
-                langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
-                rocketVao,   rocketMesh,                   rocketVertexCount,
-                launchpadVao, launchpadMesh,               launchpadVertexCount
-            );
-        }
-        else
-        {
-            //  -------- Split Screen (Horizontal) --------
-            // We will do the bottom half first with camera1,
-            // then the top half with camera2
-
-            // ============= BOTTOM HALF =============
-            glViewport(0,0, w, h/2);
-
-            Mat44f proj1 = make_perspective_projection(
-                60.f * std::numbers::pi_v<float> / 180.f,
-                float(w)/ float(h/2),      // aspect 
-                0.1f, 100.f
-            );
-            Mat44f view1 = compute_view_matrix_for_camera(
-                               state.cam1,
-                               state.cameraMode1,
-                               state
-                           );
-
-            renderScene(
-                state,
-                view1, proj1,
-                langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
-                rocketVao,   rocketMesh,                   rocketVertexCount,
-                launchpadVao, launchpadMesh,               launchpadVertexCount
-            );
-
-            // ============= TOP HALF =============
-            glViewport(0, h/2, w, h/2);
-
-            Mat44f proj2 = make_perspective_projection(
-                60.f * std::numbers::pi_v<float> / 180.f,
-                float(w)/ float(h/2),      // aspect
-                0.1f, 100.f
-            );
-            Mat44f view2 = compute_view_matrix_for_camera(
-                               state.cam2,
-                               state.cameraMode2,
-                               state
-                           );
-
-            renderScene(
-                state,
-                view2, proj2,
-                langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
-                rocketVao,   rocketMesh,                   rocketVertexCount,
-                launchpadVao, launchpadMesh,               launchpadVertexCount
-            );
-        }
-
-        // Swap buffers
-        glfwSwapBuffers(window);
-    }
-
-    // Cleanup
-    state.prog = nullptr;    
-    return 0;
-}
-catch(std::exception const& eErr)
-{
-    std::fprintf(stderr, "Top-level Exception (%s):\n", typeid(eErr).name());
-    std::fprintf(stderr, "%s\n", eErr.what());
-    std::fprintf(stderr, "Bye.\n");
-    return 1;
-}
-
-
-// ----------------- Implementation of the "renderScene" Function -----------------
-namespace
-{
-
-    // This function draws all objects (Langerso, Rocket, Launchpads, etc.)
-    // for a single camera's "view" and "projection".
-    void renderScene(const State_& state,
-                     const Mat44f& view,
-                     const Mat44f& projection,
-                     GLuint langersoVao, const SimpleMeshData& langersoMesh, GLuint langersoTextureId, size_t langersoCount,
-                     GLuint rocketVao,   const SimpleMeshData& rocketMesh, size_t rocketCount,
-                     GLuint launchpadVao,const SimpleMeshData& launchpadMesh, size_t launchpadCount)
-    {
-        // Use the shader program
-        glUseProgram(state.prog->programId());
-
-        // Common light direction & color
-        Vec3f lightDir = normalize(Vec3f{0.f, 1.f, -1.f});
-        glUniform3fv(2,1, &lightDir.x);
-        glUniform3f(3, 0.678f, 0.847f, 0.902f);
-        glUniform3f(4, 0.05f, 0.05f, 0.05f);
-
-        // 1) -------------- Langerso --------------
-        {
-            Mat44f model2world = kIdentity44f;
-            Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
-            Mat44f mvp = projection * view * model2world;
-
-            glUniformMatrix4fv(0,1,GL_TRUE, mvp.v);
-            glUniformMatrix3fv(1,1,GL_TRUE, normalMatrix.v);
-
-            // Texture:
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, langersoTextureId);
-            glUniform1i(5, langersoMesh.isTextureSupplied);  // location=5
-
-            glUniform2f(6, langersoMesh.mins.x,  langersoMesh.mins.y);   // location=6
-            glUniform2f(7, langersoMesh.diffs.x, langersoMesh.diffs.y); // location=7
-
-            glBindVertexArray(langersoVao);
-            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)langersoCount);
-
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
-
-        // 2) -------------- Rocket --------------
-        {
-            Mat44f model2world = state.rcktCtrl.model2worldRocket;
-            Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
-            Mat44f mvp          = projection * view * model2world;
-
-            glUniformMatrix4fv(0,1,GL_TRUE, mvp.v);
-            glUniformMatrix3fv(1,1,GL_TRUE, normalMatrix.v);
-            glUniform1i(5, rocketMesh.isTextureSupplied);
-
-            glBindVertexArray(rocketVao);
-            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)rocketCount);
-        }
-
-        // 3) -------------- Launchpad #1 --------------
-        {
-            // For convenience, let's say the loaded mesh is already pre-transformed
-            Mat44f model2world = kIdentity44f;
-            Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
-            Mat44f mvp          = projection * view * model2world;
-
-            glUniformMatrix4fv(0,1,GL_TRUE, mvp.v);
-            glUniformMatrix3fv(1,1,GL_TRUE, normalMatrix.v);
-            glUniform1i(5, launchpadMesh.isTextureSupplied);
-
-            glBindVertexArray(launchpadVao);
-            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
-        }
-
-        // 4) -------------- Launchpad #2 --------------
-        {
-            // Another instance of the same mesh, but with an offset transform
-            Mat44f model2world = make_translation({3.f,0.f,-5.f});
-            Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
-            Mat44f mvp          = projection * view * model2world;
-
-            glUniformMatrix4fv(0,1,GL_TRUE, mvp.v);
-            glUniformMatrix3fv(1,1,GL_TRUE, normalMatrix.v);
-            glUniform1i(5, launchpadMesh.isTextureSupplied);
-
-            glBindVertexArray(launchpadVao);
-            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
-        }
-    }
-
-} // end namespace
-
-
