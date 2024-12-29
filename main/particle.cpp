@@ -7,36 +7,6 @@
 
 void emitParticle(std::vector<Particle>& particles, const Vec4f& enginePosition, const Vec4f& engineDirection, const Mat44f& model2world)
 {
-    Vec4f engineWorldPos = model2world * enginePosition;
-
-    Vec4f engineWorldDir = model2world * engineDirection;
-    engineWorldDir.w = 0.0f; // Ensure w=0 for direction vectors
-
-    Vec3f engPos = { engineWorldPos.x, engineWorldPos.y, engineWorldPos.z };
-    Vec3f engDir = normalize(Vec3f{ engineWorldDir.x, engineWorldDir.y, engineWorldDir.z });
-
-    Particle newParticle;
-    newParticle.position = engPos;
-
-    Vec3f randomOffset = {
-        (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 0.5f,
-        (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 0.5f,
-        (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 0.5f
-    };
-
-    // Removed the negative sign
-    newParticle.velocity = engDir * 5.0f + randomOffset;
-
-    newParticle.lifetime = 5.0f;
-    newParticle.size = 100.0f;
-    newParticle.color = { 1.0f, 0.5f, 0.1f, 1.0f };
-
-    particles.push_back(newParticle);
-}
-
-
-void emitParticle(std::vector<Particle>& particles, const Vec4f& enginePosition, const Vec4f& engineDirection, const Mat44f& model2world)
-{
     // Transform position
     Vec4f engineWorldPos = model2world * enginePosition;
 
@@ -46,12 +16,15 @@ void emitParticle(std::vector<Particle>& particles, const Vec4f& enginePosition,
     Vec4f engineWorldDir = model2world * dirToTransform;
     engineWorldDir.w = 0.0f;
 
+    // Convert to Vec3
     Vec3f engPos = { engineWorldPos.x, engineWorldPos.y, engineWorldPos.z };
     Vec3f engDir = normalize(Vec3f{ engineWorldDir.x, engineWorldDir.y, engineWorldDir.z });
 
+    // Assign particle values
     Particle newParticle;
     newParticle.position = engPos;
 
+    // Calculate random direction offset 
     Vec3f randomOffset = {
         (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 0.5f,
         (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 0.5f,
