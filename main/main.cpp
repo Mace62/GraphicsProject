@@ -1,4 +1,4 @@
-﻿// Uncomment to ENABLE performance measurements
+﻿// Uncomment to enable performance measurements
 #define ENABLE_PERFORMANCE_METRICS
 
 #include <fstream>
