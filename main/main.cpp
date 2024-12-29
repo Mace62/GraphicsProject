@@ -26,6 +26,7 @@
 #include "loadobj.hpp"
 #include "texture.hpp"
 #include "spaceship.hpp"
+#include "particle.hpp"
 
 #define M_PI 3.14159265358979323846
 
@@ -43,6 +44,7 @@ const std::string DIR_PATH = std::filesystem::current_path().string();
 const std::string LANGERSO_OBJ_ASSET_PATH        = DIR_PATH + "/assets/cw2/langerso.obj";
 const std::string LANGERSO_TEXTURE_ASSET_PATH    = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
 const std::string LAUNCHPAD_OBJ_ASSET_PATH       = DIR_PATH + "/assets/cw2/landingpad.obj";
+const std::string PARTICLE_TEXTURE_ASSET_PATH    = DIR_PATH + "/assets/cw2/explosion.png";
 
 static constexpr int MAX_POINT_LIGHTS = 3;
 static constexpr Vec3f rocketStartPos = { 0.0f, 0.0f, 0.0f };
@@ -70,7 +72,11 @@ namespace
     // --------------- Program State ---------------
     struct State_
     {
+        
+
+        // Shaders
         ShaderProgram* prog = nullptr;
+        ShaderProgram* particleShader = nullptr;
 
         // Split-screen
         bool isSplitScreen = false;
@@ -138,6 +144,13 @@ namespace
             bool isMoving = false;
             float pitch=0.f, yaw=0.f;
 
+            Vec4f enginePosition = { 0.f, 0.f, 0.f, 1.f };
+            Vec4f engineDirection = { 0.f, 0.f, 0.f, 1.f };
+
+            // Particle storage
+            std::vector<Particle> particles;
+            float particleTimer = 0.f;
+
             Mat44f translationMatrix;
             Mat44f rotation;
 
@@ -149,6 +162,8 @@ namespace
                 time=0.f;
                 isMoving=false;
                 pitch=0.f;
+                particleTimer = 0.f;
+                particles.clear();
             }
         } rcktCtrl;
 
@@ -177,13 +192,14 @@ namespace
                              State_::PointLight pointLights[MAX_POINT_LIGHTS]);
 
     // This function: draws the entire scene for one camera's view+proj
-    void renderScene(const State_& state,
+    void renderScene(State_& state,
                      const Mat44f& view,
                      const Mat44f& projection,
                      // Below are references to the various VAOs & meshes:
                      GLuint langersoVao, const SimpleMeshData& langersoMesh, GLuint langersoTextureId, size_t langersoCount,
                      GLuint rocketVao,   const SimpleMeshData& rocketMesh,   size_t rocketCount,
-                     GLuint launchpadVao, const SimpleMeshData& launchpadMesh, size_t launchpadCount);
+                     GLuint launchpadVao, const SimpleMeshData& launchpadMesh, size_t launchpadCount,
+                     GLuint particleTextureId);
 
     // RAII-like helpers
     struct GLFWCleanupHelper
@@ -617,8 +633,18 @@ namespace
             Mat44f translationMatrix = make_translation(rocket.position);
 
             // Combine translation and rotation into the final model-to-world matrix
-            rocket.model2worldRocket = translationMatrix * rotationMatrix;
+            rocket.model2worldRocket = translationMatrix * rotationMatrix * kIdentity44f;
 
+            // Emit a particle every 0.002 seconds
+            while (rocket.particleTimer >= 0.0002f)
+            {
+                // Emit a particle
+                emitParticle(rocket.particles, rocket.enginePosition, rocket.engineDirection, rocket.model2worldRocket);
+
+                // Reset timer (or subtract 0.002f to allow for continuous emission if multiple particles are to be emitted)
+                rocket.particleTimer -= 0.0002f;
+
+            }
 
             // Debug output for verification
             /*printf("Rocket Time: %f\n", rocket.time);
@@ -626,6 +652,8 @@ namespace
             printf("Velocity: (%f, %f, %f)\n", rocket.velocity.x, rocket.velocity.y, rocket.velocity.z);
             printf("Direction: (%f, %f, %f)\n", direction.x, direction.y, direction.z);*/
         }
+        else
+            rocket.particleTimer = 1.f;
     }
 } // end anonymous namespace
 
@@ -707,18 +735,27 @@ int main() try
     // glEnable(GL_CULL_FACE);
     // glCullFace(GL_BACK);
     // glFrontFace(GL_CCW);
+    glEnable(GL_BLEND);
+    //glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    glDepthMask(GL_TRUE);
 
     // Framebuffer size
     int iwidth, iheight;
     glfwGetFramebufferSize(window, &iwidth, &iheight);
     glViewport(0,0,iwidth,iheight);
 
-    // Load shader
+    // Load shaders
     ShaderProgram prog({
         {GL_VERTEX_SHADER,   "assets/cw2/default.vert"},
         {GL_FRAGMENT_SHADER, "assets/cw2/default.frag"}
     });
     state.prog = &prog;
+
+    ShaderProgram particleShader({
+        {GL_VERTEX_SHADER,   "assets/cw2/particle.vert"},
+        {GL_FRAGMENT_SHADER, "assets/cw2/particle.frag"}
+        });
+    state.particleShader = &particleShader;
 
     // -------------- Load all meshes & textures --------------
     // Langerso
@@ -745,6 +782,13 @@ int main() try
     );
     GLuint rocketVao = create_vao(rocketMesh);
     size_t rocketVertexCount = rocketMesh.positions.size();
+    state.rcktCtrl.enginePosition = rocketMesh.engineLocation;
+    state.rcktCtrl.engineDirection = rocketMesh.engineDirection;
+
+
+    // Particles
+    setupParticleSystem();
+    GLuint particleTextureId = load_texture_2d_with_alpha(PARTICLE_TEXTURE_ASSET_PATH.c_str());
 
     // -------------- Set up lights --------------
     State_::PointLight pointLights[MAX_POINT_LIGHTS];
@@ -791,6 +835,16 @@ int main() try
                           pointLights);
         updatePointLightUBO(pointLightUBO, pointLights);
 
+
+        // Update patricle system
+        state.rcktCtrl.particleTimer += dt;  // Accumulate time
+
+        
+
+        // Update particles
+        if (state.rcktCtrl.isMoving)
+            updateParticles(dt, state.rcktCtrl.particles);
+
         // Prepare once for entire frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -817,7 +871,8 @@ int main() try
                 view, proj,
                 langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
                 rocketVao,   rocketMesh,                   rocketVertexCount,
-                launchpadVao, launchpadMesh,               launchpadVertexCount
+                launchpadVao, launchpadMesh,               launchpadVertexCount,
+                particleTextureId
             );
         }
         else
@@ -845,7 +900,8 @@ int main() try
                 view1, proj1,
                 langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
                 rocketVao,   rocketMesh,                   rocketVertexCount,
-                launchpadVao, launchpadMesh,               launchpadVertexCount
+                launchpadVao, launchpadMesh,               launchpadVertexCount,
+                particleTextureId
             );
 
             // ============= TOP HALF =============
@@ -867,7 +923,8 @@ int main() try
                 view2, proj2,
                 langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
                 rocketVao,   rocketMesh,                   rocketVertexCount,
-                launchpadVao, launchpadMesh,               launchpadVertexCount
+                launchpadVao, launchpadMesh,               launchpadVertexCount,
+                particleTextureId
             );
         }
 
@@ -894,12 +951,14 @@ namespace
 
     // This function draws all objects (Langerso, Rocket, Launchpads, etc.)
     // for a single camera's "view" and "projection".
-    void renderScene(const State_& state,
+    void renderScene(State_& state,
                      const Mat44f& view,
                      const Mat44f& projection,
                      GLuint langersoVao, const SimpleMeshData& langersoMesh, GLuint langersoTextureId, size_t langersoCount,
                      GLuint rocketVao,   const SimpleMeshData& rocketMesh, size_t rocketCount,
-                     GLuint launchpadVao,const SimpleMeshData& launchpadMesh, size_t launchpadCount)
+                     GLuint launchpadVao,const SimpleMeshData& launchpadMesh, size_t launchpadCount,
+                     GLuint particleTextureId
+    )
     {
         // Use the shader program
         glUseProgram(state.prog->programId());
@@ -975,6 +1034,11 @@ namespace
 
             glBindVertexArray(launchpadVao);
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
+        }
+
+        // 5) -------------- Particle Exhaust --------------
+        {           
+            renderParticles(state.rcktCtrl.particles, state.particleShader->programId(), particleTextureId, projection * view);
         }
     }
 

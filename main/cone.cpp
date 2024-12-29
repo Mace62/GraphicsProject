@@ -23,7 +23,6 @@ SimpleMeshData make_cone(
     // For a unit cone (height = 1, radius = 1)
     float const height = 1.0f;
     float const radius = 1.0f;
-    float const slope = atan2(height, radius);
     float const slopeScale = 1.0f / sqrt(1.0f + (radius * radius) / (height * height));
 
     for (std::size_t i = 0; i < aSubdivs; ++i) {
