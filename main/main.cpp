@@ -1,9 +1,4 @@
-﻿// ======================================================
-// main.cpp
-// (Single-file example with Task 1.9 + Task 1.12 instrumentation, FIXED)
-// ======================================================
-
-// Uncomment to ENABLE performance measurements
+﻿// Uncomment to ENABLE performance measurements
 #define ENABLE_PERFORMANCE_METRICS
 
 #include <glad/glad.h>
@@ -19,7 +14,7 @@
 #include <filesystem>
 #include <string>
 #include <iostream>
-#include <chrono> // For timing logic
+#include <chrono> 
 
 #include "../support/error.hpp"
 #include "../support/program.hpp"
@@ -67,7 +62,7 @@ enum class CameraMode {
 };
 
 // --------------- Window Title & Movement Constants -------------
-constexpr char const* kWindowTitle = "COMP3811 - CW2 (Split-Screen + Perf Metrics)";
+constexpr char const* kWindowTitle = "COMP3811 - CW2";
 constexpr float       kMovementPerSecond_ = 5.f;    // movement units per second
 constexpr float       kMouseSensitivity_ = 0.01f;  // radians per pixel
 constexpr float       rocketAcceleration_ = 0.1f;
@@ -202,9 +197,7 @@ struct GLFWWindowDeleter
 };
 
 
-// --------------------------------------------------------------
-// Performance-measurement code (OpenGL timestamp queries + CPU)
-// --------------------------------------------------------------
+// --------------- Perf Measurement ---------------
 #ifdef ENABLE_PERFORMANCE_METRICS
 static constexpr int MAX_FRAMES_IN_FLIGHT = 3;
 
@@ -236,7 +229,6 @@ static int g_totalFrameCount = 0;
 // Helper to retrieve queries from an older frame
 static void retrieveQueries(int frameIndex)
 {
-    // GPU timestamps are in ns; we'll convert to ms
     GLuint64 frameStart = 0, frameEnd = 0;
     glGetQueryObjectui64v(g_timestampFrameStart[frameIndex], GL_QUERY_RESULT, &frameStart);
     glGetQueryObjectui64v(g_timestampFrameEnd[frameIndex], GL_QUERY_RESULT, &frameEnd);
@@ -276,7 +268,6 @@ static void retrieveQueries(int frameIndex)
     double cpuRenderTime = g_cpuRenderTimes[frameIndex];
     double cpuFrameTime = g_cpuFrameTimes[frameIndex];
 
-    // Print them out
     std::cout << "Frame " << frameIndex << " results:\n"
         << "  GPU times (ms):\n"
         << "    Full Frame    = " << fullFrameMs << "\n"
@@ -291,9 +282,6 @@ static void retrieveQueries(int frameIndex)
 }
 #endif // ENABLE_PERFORMANCE_METRICS
 
-// --------------------------------------------------------------
-// Main
-// --------------------------------------------------------------
 int main() try
 {
     // Initialize GLFW
@@ -459,7 +447,6 @@ int main() try
         glQueryCounter(g_timestampFrameStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
-        // 1) Update logic
         updateCamera(state.cam1, dt);
         updateCamera(state.cam2, dt);
         updateRocket(state.rcktCtrl, dt);
@@ -467,15 +454,13 @@ int main() try
         updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh, pointLights);
         updatePointLightUBO(pointLightUBO, pointLights);
 
-        // 2) Clear
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 #ifdef ENABLE_PERFORMANCE_METRICS
         auto cpuRenderStart = Clock::now();
 #endif
 
-        // We ALWAYS do the sub-view queries, even if not split-screen
-        // so that they are "used" and won't cause 'Query not found'.
+        // Queries always used, even if not in split screen
         glQueryCounter(g_timestampViewAStart[g_currentFrameIndex], GL_TIMESTAMP);
 
         if (!state.isSplitScreen)
@@ -492,7 +477,6 @@ int main() try
                 state
             );
 
-            // Render with per-object queries
             renderScene(
                 state,
                 view, proj,
@@ -503,7 +487,7 @@ int main() try
         }
         else
         {
-            // (A) BOTTOM HALF => "View A"
+            // Bottom half
             glViewport(0, 0, w, h / 2);
 
             Mat44f projA = make_perspective_projection(
@@ -524,20 +508,17 @@ int main() try
                 rocketVao, rocketMesh, rocketVertexCount,
                 launchpadVao, launchpadMesh, launchpadVertexCount
             );
-            // restore viewport in case next part also modifies it
             glViewport(0, 0, w, h);
         }
 
-        // End of "View A" query (either real sub-view or dummy)
         glQueryCounter(g_timestampViewAEnd[g_currentFrameIndex], GL_TIMESTAMP);
 
 
-        // Start "View B" query (dummy if not actually used)
         glQueryCounter(g_timestampViewBStart[g_currentFrameIndex], GL_TIMESTAMP);
 
         if (state.isSplitScreen)
         {
-            // (B) TOP HALF => "View B"
+            // Top Half
             glViewport(0, h / 2, w, h / 2);
 
             Mat44f projB = make_perspective_projection(
@@ -559,27 +540,23 @@ int main() try
             );
             glViewport(0, 0, w, h);
         }
-        // End "View B"
+
         glQueryCounter(g_timestampViewBEnd[g_currentFrameIndex], GL_TIMESTAMP);
 
-        // Swap
         glfwSwapBuffers(window);
 
 #ifdef ENABLE_PERFORMANCE_METRICS
         // GPU frame end
         glQueryCounter(g_timestampFrameEnd[g_currentFrameIndex], GL_TIMESTAMP);
 
-        // CPU render end
         auto cpuRenderEnd = Clock::now();
         g_cpuRenderTimes[g_currentFrameIndex] =
             std::chrono::duration<double, std::milli>(cpuRenderEnd - cpuRenderStart).count();
 
-        // CPU frame end
         auto cpuFrameEnd = Clock::now();
         g_cpuFrameTimes[g_currentFrameIndex] =
             std::chrono::duration<double, std::milli>(cpuFrameEnd - cpuFrameStart).count();
 
-        // Increase total frames
         g_totalFrameCount++;
 
         // Retrieve from older frame to avoid stalls
@@ -589,12 +566,10 @@ int main() try
             retrieveQueries(retrieveIndex);
         }
 
-        // Next index
         g_currentFrameIndex = (g_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 #endif
     }
 
-    // Cleanup
     state.prog = nullptr;
 
 #ifdef ENABLE_PERFORMANCE_METRICS
@@ -627,9 +602,7 @@ catch (std::exception const& eErr)
     return 1;
 }
 
-// --------------------------------------------------------------
-// Callbacks, Updates, and renderScene
-// --------------------------------------------------------------
+
 static void glfw_callback_error_(int aErrNum, char const* aErrDesc)
 {
     std::fprintf(stderr, "GLFW error: %s (%d)\n", aErrDesc, aErrNum);
@@ -659,7 +632,7 @@ static void glfw_callback_key_(GLFWwindow* aWindow, int aKey, int, int aAction, 
             }
         }
 
-        // Shift + C => cycle camera2
+        // Cycle camera2
         if (aKey == GLFW_KEY_C && (mods & GLFW_MOD_SHIFT) && aAction == GLFW_PRESS)
         {
             switch (state->cameraMode2)
@@ -838,15 +811,26 @@ static Mat44f compute_view_matrix_for_camera(const State_::CamCtrl_& camCtrl,
             camCtrl.position + camCtrl.forward,
             camCtrl.up);
     case CameraMode::CHASE:
-    {
-        auto const& rocketPos = state.rcktCtrl.position;
-        Vec3f chaseCamPos = rocketPos - Vec3f{ 0.f,0.f,1.f }*state.chaseDistance + Vec3f{ 0.f,1.f,0.f };
-        return make_look_at(
-            Vec4f{ chaseCamPos.x,chaseCamPos.y,chaseCamPos.z,1.f },
-            Vec4f{ rocketPos.x + 1.47f,rocketPos.y,rocketPos.z - 1.20f,1.f },
-            Vec4f{ 0.f,1.f,0.f,0.f }
-        );
-    }
+		{
+			// Chase from behind the rocket at a fixed distance
+			auto const& rocketPos = state.rcktCtrl.position;
+
+
+			Vec3f rocketForwardWS = { 0.f, 0.f, -1.f };
+
+			// Position the chase camera behind and slightly above rocket
+			Vec3f chaseCamPos = rocketPos - rocketForwardWS * state.chaseDistance + Vec3f{ 0.f, 1.f, 0.f };
+			Vec4f chaseCamPos4 = { chaseCamPos.x, chaseCamPos.y, chaseCamPos.z, 1.f };
+
+			// Look towards rocket
+			Vec4f rocketPos4 = { rocketPos.x + 1.47f , rocketPos.y, rocketPos.z - 1.20f, 1.f };
+
+			return make_look_at(
+				chaseCamPos4,
+				rocketPos4,
+				Vec4f{ 0.f, 1.f, 0.f, 0.f }  // world-up
+			);
+		}
     case CameraMode::GROUND:
     {
         auto const& rocketPos = state.rcktCtrl.position;
@@ -910,8 +894,6 @@ static void updatePointLights(Mat44f rocketPosition,
             1.f
         };
         Vec3f normWS = normalize(N * rocketData.pointLightNorms[i]);
-        // If you want them truly attached in world space:
-        //   pointLights[i].position = {posWS.x,posWS.y,posWS.z};
         pointLights[i].normals = normWS;
     }
 }
@@ -943,7 +925,7 @@ static void renderScene(const State_& state,
     glUniform3f(3, 0.678f, 0.847f, 0.902f);
     glUniform3f(4, 0.05f, 0.05f, 0.05f);
 
-    // (A) Terrain
+    // Terrain
 #ifdef ENABLE_PERFORMANCE_METRICS
     glQueryCounter(g_timestampTerrainStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
@@ -971,7 +953,7 @@ static void renderScene(const State_& state,
     glQueryCounter(g_timestampTerrainEnd[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
-    // (B) Spaceship
+    // Spaceship
 #ifdef ENABLE_PERFORMANCE_METRICS
     glQueryCounter(g_timestampSpaceshipStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
@@ -992,7 +974,7 @@ static void renderScene(const State_& state,
     glQueryCounter(g_timestampSpaceshipEnd[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
-    // (C) Launchpad #1
+    // Launchpad #1
 #ifdef ENABLE_PERFORMANCE_METRICS
     glQueryCounter(g_timestampLaunchpadsStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
@@ -1010,7 +992,7 @@ static void renderScene(const State_& state,
         glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
     }
 
-    // (D) Launchpad #2
+    // Launchpad #2
     {
         Mat44f model2world = make_translation({ 3.f,0.f,-5.f });
         Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
