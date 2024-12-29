@@ -29,7 +29,7 @@ SimpleMeshData make_cylinder(
         float y = std::cos(angle);
         float z = std::sin(angle);
 
-        // Two triangles(= 3 * 2 positions) create one segment of the cylinder’s shell.
+        // Two triangles(= 3 * 2 positions) create one segment of the cylinder's shell.
         // Generate positions and normals for the shell
         data.positions.emplace_back(Vec3f{ 0.f, prevY, prevZ });
         data.normals.emplace_back(normalize(N * Vec3f{ 0.f, prevY, prevZ }));

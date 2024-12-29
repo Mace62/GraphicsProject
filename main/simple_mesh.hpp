@@ -5,6 +5,7 @@
 
 #include <vector>
 
+#include "../vmlib/vec4.hpp"
 #include "../vmlib/vec3.hpp"
 #include "../vmlib/vec2.hpp"
 
@@ -23,8 +24,8 @@ struct SimpleMeshData {
     bool isTextureSupplied = false;
     Vec3f pointLightPos[3];
     Vec3f pointLightNorms[3];
-    Vec3f engineLocation;
-    Vec3f engineDirection;
+    Vec4f engineLocation;
+    Vec4f engineDirection;
 };
 
 
