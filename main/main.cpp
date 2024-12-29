@@ -653,7 +653,7 @@ namespace
             printf("Direction: (%f, %f, %f)\n", direction.x, direction.y, direction.z);*/
         }
         else
-            rocket.particleTimer = 1.f;
+            rocket.particleTimer = 0.f;
     }
 } // end anonymous namespace
 
