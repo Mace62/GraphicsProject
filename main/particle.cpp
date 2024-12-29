@@ -86,8 +86,6 @@ void setupParticleSystem()
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
-
-    //return particleVAO;
 }
 
 void renderParticles(const std::vector<Particle>& particles, GLuint shaderProgram, GLuint texture, Mat44f viewProjection) 
