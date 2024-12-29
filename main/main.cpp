@@ -380,6 +380,15 @@ int main() try
 		);
 
 
+		// Map Rocket model to world
+		updateRocket(state.rcktCtrl, dt);
+
+		// Update point light positions
+		updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh, pointLights);
+
+		// Update the UBO with the new point light data
+		updatePointLightUBO(pointLightUBO, pointLights);
+
 		// Always update the FREE camera’s internal orientation, even if it’s not currently in FREE mode.
 		// (So when the user returns to FREE mode, the orientation is up-to-date.)
 		updateCamera(state.camControl, dt);
@@ -405,14 +414,7 @@ int main() try
 		Mat44f projCameraWorldLaunchpad2 = projection * world2camera * model2worldLaunchpad2;
 
 
-		// Map Rocket model to world
-		updateRocket(state.rcktCtrl, dt);
-
-		// Update point light positions
-		updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh, pointLights);
-
-		// Update the UBO with the new point light data
-		updatePointLightUBO(pointLightUBO, pointLights);
+		
 			
 		Mat33f normalMatrixRocket = mat44_to_mat33(transpose(invert(state.rcktCtrl.model2worldRocket)));
 		Mat44f projCameraWorldRocket = projection * world2camera * state.rcktCtrl.model2worldRocket;
