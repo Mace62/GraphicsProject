@@ -34,6 +34,7 @@
 #include "loadobj.hpp"
 #include "texture.hpp"
 #include "spaceship.hpp"
+#include "particle.hpp"
 
 // ------------------ Quick Typedefs --------------------
 using Clock = std::chrono::high_resolution_clock;
@@ -52,13 +53,14 @@ extern "C"
 // ------------------- Assets & Constants --------------------
 const std::string DIR_PATH = std::filesystem::current_path().string();
 
-const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj";
-const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
-const std::string LAUNCHPAD_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/landingpad.obj";
+const std::string LANGERSO_OBJ_ASSET_PATH        = DIR_PATH + "/assets/cw2/langerso.obj";
+const std::string LANGERSO_TEXTURE_ASSET_PATH    = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
+const std::string LAUNCHPAD_OBJ_ASSET_PATH       = DIR_PATH + "/assets/cw2/landingpad.obj";
+const std::string PARTICLE_TEXTURE_ASSET_PATH    = DIR_PATH + "/assets/cw2/explosion.png";
+
 
 static constexpr int   MAX_POINT_LIGHTS = 3;
 static constexpr Vec3f rocketStartPos = { 0.0f, 0.0f, 0.0f };
-
 
 
 // --------------- Camera Mode ---------------
@@ -376,6 +378,7 @@ static void retrieveQueries(int frameIndex, const State_* state) {
 }
 #endif // ENABLE_PERFORMANCE_METRICS
 
+
 int main() try
 {
     // Initialize GLFW
@@ -487,6 +490,13 @@ int main() try
     );
     GLuint rocketVao = create_vao(rocketMesh);
     size_t rocketVertexCount = rocketMesh.positions.size();
+    state.rcktCtrl.enginePosition = rocketMesh.engineLocation;
+    state.rcktCtrl.engineDirection = rocketMesh.engineDirection;
+
+
+    // Particles
+    setupParticleSystem();
+    GLuint particleTextureId = load_texture_2d_with_alpha(PARTICLE_TEXTURE_ASSET_PATH.c_str());
 
     // Setup lights
     State_::PointLight pointLights[MAX_POINT_LIGHTS];
@@ -552,6 +562,18 @@ int main() try
         updatePointLights(state.rcktCtrl.model2worldRocket, rocketMesh, pointLights);
         updatePointLightUBO(pointLightUBO, pointLights);
 
+
+
+        // Update patricle system
+        state.rcktCtrl.particleTimer += dt;  // Accumulate time
+
+        
+
+        // Update particles
+        if (state.rcktCtrl.isMoving)
+            updateParticles(dt, state.rcktCtrl.particles);
+
+        // Prepare once for entire frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 #ifdef ENABLE_PERFORMANCE_METRICS
@@ -579,8 +601,9 @@ int main() try
                 state,
                 view, proj,
                 langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
-                rocketVao, rocketMesh, rocketVertexCount,
-                launchpadVao, launchpadMesh, launchpadVertexCount
+                rocketVao,   rocketMesh,                   rocketVertexCount,
+                launchpadVao, launchpadMesh,               launchpadVertexCount,
+                particleTextureId
             );
         }
         else
@@ -603,8 +626,9 @@ int main() try
                 state,
                 viewA, projA,
                 langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
-                rocketVao, rocketMesh, rocketVertexCount,
-                launchpadVao, launchpadMesh, launchpadVertexCount
+                rocketVao,   rocketMesh,                   rocketVertexCount,
+                launchpadVao, launchpadMesh,               launchpadVertexCount,
+                particleTextureId
             );
             glViewport(0, 0, w, h);
         }
@@ -633,8 +657,9 @@ int main() try
                 state,
                 viewB, projB,
                 langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
-                rocketVao, rocketMesh, rocketVertexCount,
-                launchpadVao, launchpadMesh, launchpadVertexCount
+                rocketVao,   rocketMesh,                   rocketVertexCount,
+                launchpadVao, launchpadMesh,               launchpadVertexCount,
+                particleTextureId
             );
             glViewport(0, 0, w, h);
         }
@@ -1130,6 +1155,10 @@ static void renderScene(const State_& state,
 
         glBindVertexArray(launchpadVao);
         glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
+    }
+  
+    {           
+        renderParticles(state.rcktCtrl.particles, state.particleShader->programId(), particleTextureId, projection * view);
     }
 #ifdef ENABLE_PERFORMANCE_METRICS
     glQueryCounter(g_timestampLaunchpadsEnd[g_currentFrameIndex], GL_TIMESTAMP);
