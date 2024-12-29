@@ -87,6 +87,9 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	rocketData.mins = Vec2f{ 0.f, 0.f };
 	rocketData.diffs = Vec2f{ 0.f, 0.f };
 
+	// Find engine position and direction for particle movements
+	rocketData.engineLocation = Vec3f
+
     // Apply pretransform matrix
     // Transform positions by aPreTransform
     for (auto& p : rocketData.positions)

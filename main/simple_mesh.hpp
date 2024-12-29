@@ -23,6 +23,8 @@ struct SimpleMeshData {
     bool isTextureSupplied = false;
     Vec3f pointLightPos[3];
     Vec3f pointLightNorms[3];
+    Vec3f engineLocation;
+    Vec3f engineDirection;
 };
 
 
