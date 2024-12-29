@@ -176,6 +176,7 @@ namespace
     void glfw_callback_key_(GLFWwindow*, int, int, int, int);
     void glfw_callback_motion_(GLFWwindow*, double, double);
     void mouse_button_callback(GLFWwindow*, int, int, int);
+    void framebuffer_size_callback(GLFWwindow* window, State_::rcktCtrl_& rocket);
 
     void updateCamera(State_::CamCtrl_& camera, float dt);
     void updateRocket(State_::rcktCtrl_& rocket, float dt);
@@ -215,6 +216,15 @@ namespace
     void glfw_callback_error_(int aErrNum, char const* aErrDesc)
     {
         std::fprintf(stderr, "GLFW error: %s (%d)\n", aErrDesc, aErrNum);
+    }
+
+    void framebuffer_size_callback(GLFWwindow* window, State_::rcktCtrl_& rocket)
+    {
+        // Reset/pause particle system during resize
+        rocket.particleTimer = 0.f;
+        rocket.isMoving = false;
+
+        std::cout << "herre" << std::endl;
     }
 
     void glfw_callback_key_(GLFWwindow* aWindow, int aKey, int, int aAction, int mods)
@@ -798,6 +808,8 @@ int main() try
 
     // -------------- Timing variables --------------
     auto last = Clock::now();
+    int lastw = 1280;
+    int lasth = 720;
 
     // Main loop
     while(!glfwWindowShouldClose(window))
@@ -807,14 +819,28 @@ int main() try
         // Check for window resizing
         int w,h;
         glfwGetFramebufferSize(window, &w, &h);
-        if (w<=0 || h<=0)
+        if (w<=0 || h<=0 || w != lastw || h != lasth)
         {
+            bool rememberState;
+            if (state.rcktCtrl.isMoving == true)
+            {
+                rememberState = state.rcktCtrl.isMoving;
+                state.rcktCtrl.isMoving = false;
+            }
             // Minimized? wait
             do {
-                rocket.particleTimer = 0.f;
+                // Compute dt
+                // Computing clock here will compute for small dt instead of outputting massive amounts of partices when unminimised
+                // This will effectively pause the animations while minimised
+                auto now = Clock::now();
+                last = now;
+
+                state.rcktCtrl.particleTimer = 0.f;
                 glfwWaitEvents();
                 glfwGetFramebufferSize(window,&w,&h);
             } while(w<=0 || h<=0);
+
+            state.rcktCtrl.isMoving = rememberState;
         }
         glViewport(0,0,w,h);
 
@@ -822,6 +848,8 @@ int main() try
         auto now   = Clock::now();
         float dt   = std::chrono::duration_cast<Secondsf>(now - last).count();
         last       = now;
+        lasth = h;
+        lastw = w;
 
         // Update cameras
         updateCamera(state.cam1, dt);
