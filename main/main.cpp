@@ -57,6 +57,166 @@ const std::string PARTICLE_TEXTURE_ASSET_PATH    = DIR_PATH + "/assets/cw2/explo
 static constexpr int MAX_POINT_LIGHTS = 3;
 static constexpr Vec3f rocketStartPos = { 0.0f, 0.0f, 0.0f };
 
+
+
+
+
+// --------------- Perf Measurement ---------------
+#ifdef ENABLE_PERFORMANCE_METRICS
+struct PerfMetrics {
+    // Frame timing data
+    double frameGPUTime;
+    double terrainGPUTime;
+    double launchpadsGPUTime;
+    double spaceshipGPUTime;
+    double viewAGPUTime;
+    double viewBGPUTime;
+    double cpuRenderTime;
+    double cpuFrameTime;
+
+    // Event flags
+    bool keyPressC;
+    bool keyPressShiftC;
+    bool keyPressV;
+    bool keyPressF;
+    bool cameraMovement;
+    bool splitScreenEnabled;
+
+    // Camera modes
+    int camera1Mode;
+    int camera2Mode;
+
+    // Frame counter
+    int frameNumber;
+
+    // Constructor to initialize all values
+    PerfMetrics() :
+        frameGPUTime(0.0), terrainGPUTime(0.0), launchpadsGPUTime(0.0),
+        spaceshipGPUTime(0.0), viewAGPUTime(0.0), viewBGPUTime(0.0),
+        cpuRenderTime(0.0), cpuFrameTime(0.0),
+        keyPressC(false), keyPressShiftC(false), keyPressV(false),
+        keyPressF(false), cameraMovement(false), splitScreenEnabled(false),
+        camera1Mode(0), camera2Mode(0), frameNumber(0) {
+    }
+};
+
+static constexpr int MAX_FRAMES_IN_FLIGHT = 3;
+static std::ofstream g_perfLog;
+static PerfMetrics g_currentMetrics;
+static std::string g_perfLogFilename;
+
+
+
+static void initPerfLogging() {
+    // Create timestamp for filename
+    auto now = std::chrono::system_clock::now();
+    auto timeT = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << "perf_log_" << std::put_time(std::localtime(&timeT), "%Y%m%d_%H%M%S") << ".csv";
+    g_perfLogFilename = ss.str();
+
+    g_perfLog.open(g_perfLogFilename);
+    if (!g_perfLog.is_open()) {
+        std::cerr << "Failed to open performance log file: " << g_perfLogFilename << std::endl;
+        return;
+    }
+
+    // Write CSV header
+    g_perfLog << "Frame,FrameGPUTime,TerrainGPUTime,LaunchpadsGPUTime,SpaceshipGPUTime,"
+        << "ViewAGPUTime,ViewBGPUTime,CPURenderTime,CPUFrameTime,"
+        << "KeyPressC,KeyPressShiftC,KeyPressV,KeyPressF,"
+        << "CameraMovement,SplitScreenEnabled,Camera1Mode,Camera2Mode\n";
+}
+
+// Log current frame's metrics
+static void logPerfMetrics() {
+    if (!g_perfLog.is_open()) return;
+
+    g_perfLog << g_currentMetrics.frameNumber << ","
+        << std::fixed << std::setprecision(3)
+        << g_currentMetrics.frameGPUTime << ","
+        << g_currentMetrics.terrainGPUTime << ","
+        << g_currentMetrics.launchpadsGPUTime << ","
+        << g_currentMetrics.spaceshipGPUTime << ","
+        << g_currentMetrics.viewAGPUTime << ","
+        << g_currentMetrics.viewBGPUTime << ","
+        << g_currentMetrics.cpuRenderTime << ","
+        << g_currentMetrics.cpuFrameTime << ","
+        << g_currentMetrics.keyPressC << ","
+        << g_currentMetrics.keyPressShiftC << ","
+        << g_currentMetrics.keyPressV << ","
+        << g_currentMetrics.keyPressF << ","
+        << g_currentMetrics.cameraMovement << ","
+        << g_currentMetrics.splitScreenEnabled << ","
+        << g_currentMetrics.camera1Mode << ","
+        << g_currentMetrics.camera2Mode << "\n";
+
+    // Reset event flags after logging
+    g_currentMetrics.keyPressC = false;
+    g_currentMetrics.keyPressShiftC = false;
+    g_currentMetrics.keyPressV = false;
+    g_currentMetrics.keyPressF = false;
+    g_currentMetrics.cameraMovement = false;
+}
+// Queries for total frame time
+static GLuint g_timestampFrameStart[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampFrameEnd[MAX_FRAMES_IN_FLIGHT];
+
+// Helper to retrieve queries from an older frame
+static void retrieveQueries(int frameIndex, const State_* state) {
+    GLuint64 frameStart = 0, frameEnd = 0;
+    glGetQueryObjectui64v(g_timestampFrameStart[frameIndex], GL_QUERY_RESULT, &frameStart);
+    glGetQueryObjectui64v(g_timestampFrameEnd[frameIndex], GL_QUERY_RESULT, &frameEnd);
+    g_currentMetrics.frameGPUTime = double(frameEnd - frameStart) * 1e-6;
+
+    // Terrain timing
+    GLuint64 tStart = 0, tEnd = 0;
+    glGetQueryObjectui64v(g_timestampTerrainStart[frameIndex], GL_QUERY_RESULT, &tStart);
+    glGetQueryObjectui64v(g_timestampTerrainEnd[frameIndex], GL_QUERY_RESULT, &tEnd);
+    g_currentMetrics.terrainGPUTime = double(tEnd - tStart) * 1e-6;
+
+    // Launchpads timing
+    GLuint64 lStart = 0, lEnd = 0;
+    glGetQueryObjectui64v(g_timestampLaunchpadsStart[frameIndex], GL_QUERY_RESULT, &lStart);
+    glGetQueryObjectui64v(g_timestampLaunchpadsEnd[frameIndex], GL_QUERY_RESULT, &lEnd);
+    g_currentMetrics.launchpadsGPUTime = double(lEnd - lStart) * 1e-6;
+
+    // Spaceship timing
+    GLuint64 sStart = 0, sEnd = 0;
+    glGetQueryObjectui64v(g_timestampSpaceshipStart[frameIndex], GL_QUERY_RESULT, &sStart);
+    glGetQueryObjectui64v(g_timestampSpaceshipEnd[frameIndex], GL_QUERY_RESULT, &sEnd);
+    g_currentMetrics.spaceshipGPUTime = double(sEnd - sStart) * 1e-6;
+
+    // Views timing
+    GLuint64 vaStart = 0, vaEnd = 0, vbStart = 0, vbEnd = 0;
+    glGetQueryObjectui64v(g_timestampViewAStart[frameIndex], GL_QUERY_RESULT, &vaStart);
+    glGetQueryObjectui64v(g_timestampViewAEnd[frameIndex], GL_QUERY_RESULT, &vaEnd);
+    glGetQueryObjectui64v(g_timestampViewBStart[frameIndex], GL_QUERY_RESULT, &vbStart);
+    glGetQueryObjectui64v(g_timestampViewBEnd[frameIndex], GL_QUERY_RESULT, &vbEnd);
+
+    g_currentMetrics.viewAGPUTime = double(vaEnd - vaStart) * 1e-6;
+    g_currentMetrics.viewBGPUTime = double(vbEnd - vbStart) * 1e-6;
+
+    // CPU times
+    g_currentMetrics.cpuRenderTime = g_cpuRenderTimes[frameIndex];
+    g_currentMetrics.cpuFrameTime = g_cpuFrameTimes[frameIndex];
+
+    // Update frame number and other state
+    g_currentMetrics.frameNumber = g_totalFrameCount;
+    g_currentMetrics.splitScreenEnabled = state->isSplitScreen;
+    g_currentMetrics.camera1Mode = static_cast<int>(state->cameraMode1);
+    g_currentMetrics.camera2Mode = static_cast<int>(state->cameraMode2);
+
+    // Log the metrics
+    logPerfMetrics();
+}
+#endif // ENABLE_PERFORMANCE_METRICS
+
+
+
+
+
+// --------------- Program State ---------------
 namespace
 {
     // --------------- Window Title & Movement Constants -------------
@@ -80,8 +240,6 @@ namespace
     // --------------- Program State ---------------
     struct State_
     {
-        
-
         // Shaders
         ShaderProgram* prog = nullptr;
         ShaderProgram* particleShader = nullptr;
@@ -209,7 +367,6 @@ namespace
                      GLuint launchpadVao, const SimpleMeshData& launchpadMesh, size_t launchpadCount,
                      GLuint particleTextureId);
 
-    // RAII-like helpers
     struct GLFWCleanupHelper
     {
         ~GLFWCleanupHelper() { glfwTerminate(); }
@@ -364,7 +521,6 @@ namespace
         }
     }
 
-
     // Function to update camera position based on movement
     void updateCamera(State_::CamCtrl_& camera, float dt)
     {
@@ -392,6 +548,7 @@ namespace
 
         // Apply movement
         Vec4f movement{ 0.0f, 0.0f, 0.0f, 0.0f };
+
 
         if (camera.movingForward)
             movement = movement + camera.forward * moveSpeed;
@@ -678,7 +835,14 @@ int main() try
     }
     GLFWCleanupHelper cleanupHelper;
 
+
     // Error callback
+    glfwSetErrorCallback(&glfw_callback_error_);
+
+#ifdef ENABLE_PERFORMANCE_METRICS
+    initPerfLogging();
+#endif
+
     glfwSetErrorCallback(&glfw_callback_error_);
 
     // Window hints
@@ -938,10 +1102,64 @@ int main() try
 
         // Swap buffers
         glfwSwapBuffers(window);
+
     }
 
     // Cleanup
     state.prog = nullptr;    
+
+
+#ifdef ENABLE_PERFORMANCE_METRICS
+        // GPU frame end
+        glQueryCounter(g_timestampFrameEnd[g_currentFrameIndex], GL_TIMESTAMP);
+
+        auto cpuRenderEnd = Clock::now();
+        g_cpuRenderTimes[g_currentFrameIndex] =
+            std::chrono::duration<double, std::milli>(cpuRenderEnd - cpuRenderStart).count();
+
+        auto cpuFrameEnd = Clock::now();
+        g_cpuFrameTimes[g_currentFrameIndex] =
+            std::chrono::duration<double, std::milli>(cpuFrameEnd - cpuFrameStart).count();
+
+        g_totalFrameCount++;
+
+        // Retrieve from older frame to avoid stalls
+        if (g_totalFrameCount > MAX_FRAMES_IN_FLIGHT)
+        {
+            int retrieveIndex = (g_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+            retrieveQueries(retrieveIndex, &state);
+        }
+
+        g_currentFrameIndex = (g_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+#endif
+    }
+
+    state.prog = nullptr;
+
+#ifdef ENABLE_PERFORMANCE_METRICS
+    // Delete queries
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampFrameStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampFrameEnd);
+
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampTerrainStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampTerrainEnd);
+
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampLaunchpadsStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampLaunchpadsEnd);
+
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampSpaceshipStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampSpaceshipEnd);
+
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewAStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewAEnd);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewBStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewBEnd);
+    if (g_perfLog.is_open()) {
+        g_perfLog.close();
+    }
+#endif
+
+
     return 0;
 }
 catch(std::exception const& eErr)
@@ -971,11 +1189,37 @@ namespace
         // Use the shader program
         glUseProgram(state.prog->programId());
 
+
         // Common light direction & color
         Vec3f lightDir = normalize(Vec3f{0.f, 1.f, -1.f});
         glUniform3fv(2,1, &lightDir.x);
         glUniform3f(3, 0.678f, 0.847f, 0.902f);
         glUniform3f(4, 0.05f, 0.05f, 0.05f);
+
+    if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow))) {
+#ifdef ENABLE_PERFORMANCE_METRICS
+        // Track key events
+        if (aAction == GLFW_PRESS) {
+            if (aKey == GLFW_KEY_V) {
+                g_currentMetrics.keyPressV = true;
+            }
+            else if (aKey == GLFW_KEY_C) {
+                if ((mods & GLFW_MOD_SHIFT) != 0) {
+                    g_currentMetrics.keyPressShiftC = true;
+                }
+                else {
+                    g_currentMetrics.keyPressC = true;
+                }
+            }
+            else if (aKey == GLFW_KEY_F) {
+                g_currentMetrics.keyPressF = true;
+            }
+        }
+#endif
+        // Toggle split screen
+        if (aKey == GLFW_KEY_V && aAction == GLFW_PRESS) {
+            state->isSplitScreen = !state->isSplitScreen;
+        }
 
         // 1) -------------- Langerso --------------
         {
@@ -1035,6 +1279,13 @@ namespace
             Mat44f model2world = make_translation({3.f,0.f,-5.f});
             Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
             Mat44f mvp          = projection * view * model2world;
+
+            float dx = float(aX - state->cam1.lastX);
+            float dy = float(aY - state->cam1.lastY);
+
+            if (std::abs(dx) > 0.001f || std::abs(dy) > 0.001f) {
+                g_currentMetrics.cameraMovement = true;
+            }
 
             glUniformMatrix4fv(0,1,GL_TRUE, mvp.v);
             glUniformMatrix3fv(1,1,GL_TRUE, normalMatrix.v);
