@@ -828,7 +828,8 @@ int main() try
         
 
         // Update particles
-        updateParticles(dt, state.particles);
+        if (state.rcktCtrl.isMoving)
+            updateParticles(dt, state.particles);
 
         // Prepare once for entire frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1023,14 +1024,14 @@ namespace
 
         // 5) -------------- Particle Exhaust --------------
         {
-            // Emit a particle every 0.2 seconds
-            if (state.particleTimer >= 0.02f)
+            // Emit a particle every 0.02 seconds
+            if (state.particleTimer >= 0.0002f && state.rcktCtrl.isMoving)
             {
                 // Emit a particle
                 emitParticle(state.particles, state.rcktCtrl.enginePosition, state.rcktCtrl.engineDirection, state.rcktCtrl.model2worldRocket);
 
                 // Reset timer (or subtract 0.2f to allow for continuous emission if multiple particles are to be emitted)
-                state.particleTimer -= 0.02f;
+                state.particleTimer -= 0.0002f;
             }
 
             // Render the particles

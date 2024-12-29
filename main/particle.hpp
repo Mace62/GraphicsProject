@@ -17,7 +17,7 @@ struct Particle {
     Vec4f color;      // Colour with alpha (RGBA)
 };
 
-constexpr int MAX_PARTICLES = 1000;
+constexpr int MAX_PARTICLES = 10000;
 //std::vector<Particle> particles;
 
 void emitParticle(std::vector<Particle>& particles, const Vec4f& enginePosition, const Vec4f& engineDirection, const Mat44f& model2world);
