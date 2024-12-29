@@ -811,6 +811,7 @@ int main() try
         {
             // Minimized? wait
             do {
+                rocket.particleTimer = 0.f;
                 glfwWaitEvents();
                 glfwGetFramebufferSize(window,&w,&h);
             } while(w<=0 || h<=0);
