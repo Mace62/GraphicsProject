@@ -36,10 +36,10 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	);
 
 	// Create 2 wings as "flight control surfaces"
-	auto wingTriangleBasedPrism1 = make_triangle_based_prism( true, 
-		{1.5f, 0.f}, { 0.f, 0.f }, { 0.f, 1.f },
+	auto wingTriangleBasedPrism1 = make_triangle_based_prism(true,
+		{ 1.5f, 0.f }, { 0.f, 0.f }, { 0.f, 1.f },
 		0.05f, aColorMainBody,
-		make_rotation_y(-90 *(std::numbers::pi_v<float> / 180.0)) * make_translation({0.f, 1.f, -0.5f}) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
+		make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, -0.5f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
 	);
 
 	auto wingTriangleBasedPrism2 = make_triangle_based_prism(true,
@@ -61,24 +61,24 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 		auto standTriangleBasedPrism = make_triangle_based_prism(true,
 			{ 1.0f, 0.f }, { 0.f, 0.f }, { -1.f, 1.f },
 			0.05f, aColorWings,
-			make_rotation_x(standNum* std::numbers::pi_v<float> / 2.f) * make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, 1.75f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
+			make_rotation_x(standNum * std::numbers::pi_v<float> / 2.f) * make_rotation_y(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, 1.f, 1.75f }) * make_rotation_x(-90 * (std::numbers::pi_v<float> / 180.0))
 		);
 
 		rocketData = concatenate(std::move(rocketData), standTriangleBasedPrism);
 	}
-	
-    // Example usage:
-    SimpleMeshData nozzle = make_truncated_ovoid(
-        32,     // circumference subdivisions
-        16,     // height subdivisions
-        2.0f,   // vertical scaling (makes it more elongated)
-        0.6f,   // top cutoff (30% from top)
-        0.15f,   // bottom cutoff (20% from bottom)
-        Vec3f{ 0.8f, 0.8f, 0.8f },  // color (metallic gray)
-        make_rotation_z(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, -2.88f , 0.f }) * make_scaling(0.5f, 0.5f, 0.5f)
-    );
-	
-    rocketData = concatenate(std::move(rocketData), nozzle);
+
+	// Example usage:
+	SimpleMeshData nozzle = make_truncated_ovoid(
+		32,     // circumference subdivisions
+		16,     // height subdivisions
+		2.0f,   // vertical scaling (makes it more elongated)
+		0.6f,   // top cutoff (30% from top)
+		0.15f,   // bottom cutoff (20% from bottom)
+		Vec3f{ 0.8f, 0.8f, 0.8f },  // color (metallic gray)
+		make_rotation_z(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, -2.88f , 0.f }) * make_scaling(0.5f, 0.5f, 0.5f)
+	);
+
+	rocketData = concatenate(std::move(rocketData), nozzle);
 
 	// Set tex coords t
 	rocketData.texcoords.assign(rocketData.positions.size(), Vec2f{ 0.f, 0.f });
@@ -88,7 +88,7 @@ SimpleMeshData create_spaceship(std::size_t aSubdivs, Vec3f aColorMainBody, Vec3
 	rocketData.diffs = Vec2f{ 0.f, 0.f };
 
 	// Find engine position and direction for particle movements
-	rocketData.engineLocation = Vec3f
+	rocketData.engineLocation = make_rotation_z(-90 * (std::numbers::pi_v<float> / 180.0)) * make_translation({ 0.f, -2.88f , 0.f }) * make_scaling(0.5f, 0.5f, 0.5f) * Vec4f{0.f, 0.f, 0.f, 1.f}
 
     // Apply pretransform matrix
     // Transform positions by aPreTransform
