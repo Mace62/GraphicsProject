@@ -73,11 +73,13 @@ namespace
     // --------------- Program State ---------------
     struct State_
     {
-        
+        // Fontstash context to for text rendering
+        FONScontext* fs = NULL
 
         // Shaders
         ShaderProgram* prog = nullptr;
         ShaderProgram* particleShader = nullptr;
+        ShaderProgram* textShader = nullptr;
 
         // Split-screen
         bool isSplitScreen = false;
@@ -758,6 +760,12 @@ int main() try
         });
     state.particleShader = &particleShader;
 
+    ShaderProgram textShader({
+        {GL_VERTEX_SHADER,   "assets/cw2/text.vert"},
+        {GL_FRAGMENT_SHADER, "assets/cw2/text.frag"}
+        });
+    state.textShader = &textShader;
+
     // -------------- Load all meshes & textures --------------
     // Langerso
     auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str(), true);
@@ -786,10 +794,18 @@ int main() try
     state.rcktCtrl.enginePosition = rocketMesh.engineLocation;
     state.rcktCtrl.engineDirection = rocketMesh.engineDirection;
 
-
     // Particles
     setupParticleSystem();
     GLuint particleTextureId = load_texture_2d_with_alpha(PARTICLE_TEXTURE_ASSET_PATH.c_str());
+
+    // Text
+    state.fs = openGLFonsCreate(1280, 720, FONS_ZERO_TOPLEFT);
+    if (fs == NULL) {
+        printf("Could not create stash.\n");
+        return -1;
+    }
+
+    int fontSans = 
 
     // -------------- Set up lights --------------
     State_::PointLight pointLights[MAX_POINT_LIGHTS];

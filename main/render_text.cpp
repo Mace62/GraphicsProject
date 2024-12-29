@@ -304,18 +304,11 @@
 
 
 
-
-
-
-
-FONScontext* openGLFonsCreate(int width, int height, int flags);
-void openGLFonsDelete(FONScontext* ctx);
-
-unsigned int glfonsRGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
-
+#include <vector>
 
 struct GLFONScontext {
 	GLuint tex;
+	GLuint VAO, VBO = 0;
 	int width, height;
 };
 typedef struct GLFONScontext GLFONScontext;
@@ -344,44 +337,91 @@ static int glfons__renderResize(void* userPtr, int width, int height)
 	return glfons__renderCreate(userPtr, width, height);
 }
 
-static void glfons__renderUpdate(void* userPtr, int* rect, const unsigned char* data)
-{
+static void glfons__renderUpdate(void* userPtr, int* rect, const unsigned char* data) {
 	GLFONScontext* gl = (GLFONScontext*)userPtr;
 	int w = rect[2] - rect[0];
 	int h = rect[3] - rect[1];
 
 	if (gl->tex == 0) return;
 
-	glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+	// Save the current pixel store states
+	GLint unpackAlignment, rowLength, skipPixels, skipRows;
+	glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpackAlignment);
+	glGetIntegerv(GL_UNPACK_ROW_LENGTH, &rowLength);
+	glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &skipPixels);
+	glGetIntegerv(GL_UNPACK_SKIP_ROWS, &skipRows);
+
+	// Modify pixel store states for this operation
 	glBindTexture(GL_TEXTURE_2D, gl->tex);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, gl->width);
 	glPixelStorei(GL_UNPACK_SKIP_PIXELS, rect[0]);
 	glPixelStorei(GL_UNPACK_SKIP_ROWS, rect[1]);
+
+	// Update texture subregion
 	glTexSubImage2D(GL_TEXTURE_2D, 0, rect[0], rect[1], w, h, GL_ALPHA, GL_UNSIGNED_BYTE, data);
-	glPopClientAttrib();
+
+	// Restore the saved pixel store states
+	glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, rowLength);
+	glPixelStorei(GL_UNPACK_SKIP_PIXELS, skipPixels);
+	glPixelStorei(GL_UNPACK_SKIP_ROWS, skipRows);
 }
 
-static void glfons__renderDraw(void* userPtr, const float* verts, const float* tcoords, const unsigned int* colors, int nverts)
-{
+
+static void glfons__renderDraw(void* userPtr, const float* verts, const float* tcoords, const unsigned int* colors, int nverts) {
 	GLFONScontext* gl = (GLFONScontext*)userPtr;
+
 	if (gl->tex == 0) return;
+
+	// Bind the font texture
 	glBindTexture(GL_TEXTURE_2D, gl->tex);
-	glEnable(GL_TEXTURE_2D);
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	glEnableClientState(GL_COLOR_ARRAY);
 
-	glVertexPointer(2, GL_FLOAT, sizeof(float) * 2, verts);
-	glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 2, tcoords);
-	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(unsigned int), colors);
+	// Generate and bind a Vertex Array Object (VAO)
+	GLuint VAO, VBO;
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
 
+	glBindVertexArray(VAO);
+
+	// Combine all vertex attributes into a single interleaved array
+	std::vector<float> vertexData;
+	for (int i = 0; i < nverts; ++i) {
+		// Add position (2 floats)
+		vertexData.push_back(verts[i * 2 + 0]);
+		vertexData.push_back(verts[i * 2 + 1]);
+		// Add texture coordinates (2 floats)
+		vertexData.push_back(tcoords[i * 2 + 0]);
+		vertexData.push_back(tcoords[i * 2 + 1]);
+		// Add colour (4 unsigned bytes, converted to floats)
+		unsigned int color = colors[i];
+		vertexData.push_back(((color >> 24) & 0xFF) / 255.0f); // Red
+		vertexData.push_back(((color >> 16) & 0xFF) / 255.0f); // Green
+		vertexData.push_back(((color >> 8) & 0xFF) / 255.0f);  // Blue
+		vertexData.push_back((color & 0xFF) / 255.0f);         // Alpha
+	}
+
+	// Upload data to the GPU
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_DYNAMIC_DRAW);
+
+	// Set up vertex attribute pointers
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);            // Position
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(2 * sizeof(float))); // TexCoords
+	glEnableVertexAttribArray(1);
+
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(4 * sizeof(float))); // Colours
+	glEnableVertexAttribArray(2);
+
+	// Draw the triangles
 	glDrawArrays(GL_TRIANGLES, 0, nverts);
 
-	glDisable(GL_TEXTURE_2D);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	glDisableClientState(GL_COLOR_ARRAY);
+	// Clean up
+	glBindVertexArray(0);
+	glDeleteBuffers(1, &VBO);
+	glDeleteVertexArrays(1, &VAO);
 }
 
 static void glfons__renderDelete(void* userPtr)
@@ -394,7 +434,7 @@ static void glfons__renderDelete(void* userPtr)
 }
 
 
-FONScontext* glfonsCreate(int width, int height, int flags)
+FONScontext* openGLFonsCreate(int width, int height, int flags)
 {
 	FONSparams params;
 	GLFONScontext* gl;
@@ -421,14 +461,16 @@ error:
 	return NULL;
 }
 
-void glfonsDelete(FONScontext* ctx)
+void openGLFonsDelete(FONScontext* ctx)
 {
 	fonsDeleteInternal(ctx);
 }
 
-unsigned int glfonsRGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
-{
-	return (r) | (g << 8) | (b << 16) | (a << 24);
-}
 
-#endif
+
+
+//unsigned int glfonsRGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
+//{
+//	return (r) | (g << 8) | (b << 16) | (a << 24);
+//}
+

@@ -10,5 +10,8 @@ extern FONScontext* fs;  // Fontstash context
 //void deleteFontstash();
 //void renderText(const char* text, float x, float y, int fontSize, unsigned int color);
 
+FONScontext* openGLFonsCreate(int width, int height, int flags);
+void openGLFonsDelete(FONScontext* ctx);
+
 
 #endif // RENDER_TEXT_HPP
