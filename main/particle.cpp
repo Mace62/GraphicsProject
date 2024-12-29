@@ -35,7 +35,6 @@ void emitParticle(std::vector<Particle>& particles, const Vec4f& enginePosition,
 
     newParticle.lifetime = 5.0f;
     newParticle.size = 100.0f;
-    newParticle.color = { 1.0f, 0.5f, 0.1f, 1.0f };
 
     particles.push_back(newParticle);
 }
@@ -49,9 +48,6 @@ void updateParticles(float deltaTime, std::vector<Particle>& particles)
             // Update particle's position and fade
             particle.position += particle.velocity * deltaTime;
             particle.lifetime -= deltaTime;
-
-            // Fade out as lifetime decreases
-            particle.color.w = std::max(0.0f, particle.lifetime / 3.0f);
         }
     }
 
@@ -85,13 +81,9 @@ void setupParticleSystem()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, position));
     glEnableVertexAttribArray(0);
 
-    // Enable colour attribute
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, color));
-    glEnableVertexAttribArray(1);
-
     // Enable size attribute
-    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, size));
-    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, size));
+    glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
 

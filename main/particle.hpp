@@ -14,7 +14,6 @@ struct Particle {
     Vec3f velocity;   // Velocity vector
     float lifetime;   // Remaining lifetime (in seconds)
     float size;       // Size of the particle
-    Vec4f color;      // Colour with alpha (RGBA)
 };
 
 constexpr int MAX_PARTICLES = 1000000;
