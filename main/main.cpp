@@ -72,9 +72,7 @@ namespace
     // --------------- Program State ---------------
     struct State_
     {
-        // Particle storage
-        std::vector<Particle> particles;
-        float particleTimer = 0.f;
+        
 
         // Shaders
         ShaderProgram* prog = nullptr;
@@ -149,6 +147,9 @@ namespace
             Vec4f enginePosition = { 0.f, 0.f, 0.f, 1.f };
             Vec4f engineDirection = { 0.f, 0.f, 0.f, 1.f };
 
+            // Particle storage
+            std::vector<Particle> particles;
+            float particleTimer = 0.f;
 
             Mat44f translationMatrix;
             Mat44f rotation;
@@ -161,6 +162,8 @@ namespace
                 time=0.f;
                 isMoving=false;
                 pitch=0.f;
+                particleTimer = 0.f;
+                particles.clear();
             }
         } rcktCtrl;
 
@@ -632,7 +635,16 @@ namespace
             // Combine translation and rotation into the final model-to-world matrix
             rocket.model2worldRocket = translationMatrix * rotationMatrix * kIdentity44f;
 
+            // Emit a particle every 0.002 seconds
+            while (rocket.particleTimer >= 0.0002f)
+            {
+                // Emit a particle
+                emitParticle(rocket.particles, rocket.enginePosition, rocket.engineDirection, rocket.model2worldRocket);
 
+                // Reset timer (or subtract 0.002f to allow for continuous emission if multiple particles are to be emitted)
+                rocket.particleTimer -= 0.0002f;
+
+            }
 
             // Debug output for verification
             /*printf("Rocket Time: %f\n", rocket.time);
@@ -640,6 +652,8 @@ namespace
             printf("Velocity: (%f, %f, %f)\n", rocket.velocity.x, rocket.velocity.y, rocket.velocity.z);
             printf("Direction: (%f, %f, %f)\n", direction.x, direction.y, direction.z);*/
         }
+        else
+            rocket.particleTimer = 1.f;
     }
 } // end anonymous namespace
 
@@ -823,13 +837,13 @@ int main() try
 
 
         // Update patricle system
-        state.particleTimer += dt;  // Accumulate time
+        state.rcktCtrl.particleTimer += dt;  // Accumulate time
 
         
 
         // Update particles
         if (state.rcktCtrl.isMoving)
-            updateParticles(dt, state.particles);
+            updateParticles(dt, state.rcktCtrl.particles);
 
         // Prepare once for entire frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1023,19 +1037,8 @@ namespace
         }
 
         // 5) -------------- Particle Exhaust --------------
-        {
-            // Emit a particle every 0.02 seconds
-            if (state.particleTimer >= 0.0002f && state.rcktCtrl.isMoving)
-            {
-                // Emit a particle
-                emitParticle(state.particles, state.rcktCtrl.enginePosition, state.rcktCtrl.engineDirection, state.rcktCtrl.model2worldRocket);
-
-                // Reset timer (or subtract 0.2f to allow for continuous emission if multiple particles are to be emitted)
-                state.particleTimer -= 0.0002f;
-            }
-
-            // Render the particles
-            renderParticles(state.particles, state.particleShader->programId(), particleTextureId, projection * view);
+        {           
+            renderParticles(state.rcktCtrl.particles, state.particleShader->programId(), particleTextureId, projection * view);
         }
     }
 
