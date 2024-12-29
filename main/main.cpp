@@ -27,6 +27,7 @@
 #include "texture.hpp"
 #include "spaceship.hpp"
 #include "particle.hpp"
+//#include "render_text.hpp"
 
 #define M_PI 3.14159265358979323846
 
