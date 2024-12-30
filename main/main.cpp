@@ -29,6 +29,7 @@
 #include "spaceship.hpp"
 #include "particle.hpp"
 #include "render_text.hpp"
+#include "button.hpp"
 
 #define M_PI 3.14159265358979323846;
 
@@ -83,6 +84,10 @@ namespace
         ShaderProgram* prog = nullptr;
         ShaderProgram* particleShader = nullptr;
         ShaderProgram* textShader = nullptr;
+        ShaderProgram* buttonShader = nullptr;
+
+        // Vector of buttons
+        std::vector<Button> buttons;
 
         // Split-screen
         bool isSplitScreen = false;
@@ -233,12 +238,7 @@ namespace
         if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow))) {
             // Press V to toggle split screen:
             if (aKey == GLFW_KEY_V && aAction == GLFW_PRESS) {
-                state->isSplitScreen = !state->isSplitScreen;
-                /*if (state->fsContext != nullptr)
-                {
-                    state->fsContext->g
-                }*/
-                
+                state->isSplitScreen = !state->isSplitScreen;                
             }
 
             // Press C to cycle camera 1's mode:
@@ -774,6 +774,12 @@ int main() try
         });
     state.textShader = &textShader;
 
+    ShaderProgram buttonShader({
+        {GL_VERTEX_SHADER,   "assets/cw2/button.vert"},
+        {GL_FRAGMENT_SHADER, "assets/cw2/button.frag"}
+        });
+    state.buttonShader = &buttonShader;
+
     // -------------- Load fonts --------------
     state.fsContext = glfonsCreate(1280, 720, FONS_ZERO_TOPLEFT, textShader.programId());
 
@@ -783,6 +789,23 @@ int main() try
         printf("Could not add font normal.\n");
         return -1;
     }
+
+    // -------------- Add buttons --------------
+    
+    // Create button
+    Button launchButton(0.25f, 0.1f, 0.2f, 0.08f, "Launch rocket", state.fsContext, fontSans, buttonShader.programId());
+    Button resetButton(0.55f, 0.1f, 0.2f, 0.08f, "Reset rocket", state.fsContext, fontSans, buttonShader.programId());
+
+    // Set click handlers
+    launchButton.setOnClick([&state]() {  // Added state capture
+        state.rcktCtrl.isMoving = true;  // Actually set the value
+    });
+
+    resetButton.setOnClick([&state]() {  // Added state capture
+        state.rcktCtrl.reset();
+    });
+
+    //state.buttons.push_back(Button())
 
     // -------------- Load all meshes & textures --------------
     // Langerso
@@ -811,7 +834,6 @@ int main() try
     size_t rocketVertexCount = rocketMesh.positions.size();
     state.rcktCtrl.enginePosition = rocketMesh.engineLocation;
     state.rcktCtrl.engineDirection = rocketMesh.engineDirection;
-
 
     // Particles
     setupParticleSystem();
@@ -973,13 +995,24 @@ int main() try
                 particleTextureId
             );
         }
+
+        // Reset viewport for text stuff
         glViewport(0, 0, w, h);
 
-
+        // Output altitude of rocket
         std::string altitudeText = std::format("Altitude: {:.4f}", state.rcktCtrl.position.y);
-
-
         renderText(state.fsContext, altitudeText.c_str(), 10.0f, 20.0f, 20.0f, glfonsRGBA(255, 255, 255, 255), fontSans); // White text
+
+
+        
+
+        // Update and render buttons
+        launchButton.update(window);
+        launchButton.render(w, h);
+
+        resetButton.update(window);
+        resetButton.render(w, h);
+
 
         // Swap buffers
         glfwSwapBuffers(window);
