@@ -4,14 +4,12 @@
 #include <fontstash.h>
 #include <glad/glad.h>
 
-extern FONScontext* fs;  // Fontstash context
+FONScontext* glfonsCreate(int width, int height, int flags, GLuint shaderProgramID);
+void glfonsDelete(FONScontext* ctx);
 
-//void initFontstash(int width, int height, const char* fontPath, int flags, GLuint shaderProgramID);
-//void deleteFontstash();
-//void renderText(const char* text, float x, float y, int fontSize, unsigned int color);
+unsigned int glfonsRGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+void renderText(FONScontext* fsContext, const char* text, float x, float y, float fontSize, unsigned int color, int font);
 
-FONScontext* openGLFonsCreate(int width, int height, int flags);
-void openGLFonsDelete(FONScontext* ctx);
-
+void glfonsUpdateWindowSize(FONScontext* ctx, int width, int height);
 
 #endif // RENDER_TEXT_HPP

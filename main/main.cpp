@@ -12,6 +12,7 @@
 #include <string>
 #include <iostream>
 #include <chrono>       // For timing logic
+#include <format>
 
 #include "../support/error.hpp"
 #include "../support/program.hpp"
@@ -27,9 +28,9 @@
 #include "texture.hpp"
 #include "spaceship.hpp"
 #include "particle.hpp"
-//#include "render_text.hpp"
+#include "render_text.hpp"
 
-#define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846;
 
 #if defined(_WIN32) // alternative: #if defined(_MSC_VER)
 extern "C"
@@ -42,10 +43,12 @@ extern "C"
 // ------------------- Assets & Constants --------------------
 const std::string DIR_PATH = std::filesystem::current_path().string();
 
-const std::string LANGERSO_OBJ_ASSET_PATH        = DIR_PATH + "/assets/cw2/langerso.obj";
-const std::string LANGERSO_TEXTURE_ASSET_PATH    = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
-const std::string LAUNCHPAD_OBJ_ASSET_PATH       = DIR_PATH + "/assets/cw2/landingpad.obj";
-const std::string PARTICLE_TEXTURE_ASSET_PATH    = DIR_PATH + "/assets/cw2/explosion.png";
+const std::string LANGERSO_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/langerso.obj";
+const std::string LANGERSO_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/L3211E-4k.jpg";
+const std::string LAUNCHPAD_OBJ_ASSET_PATH = DIR_PATH + "/assets/cw2/landingpad.obj";
+const std::string PARTICLE_TEXTURE_ASSET_PATH = DIR_PATH + "/assets/cw2/explosion.png";
+const std::string DSMD_FONT_ASSET_PATH = DIR_PATH + "/assets/cw2/DroidSansMonoDotted.ttf";
+
 
 static constexpr int MAX_POINT_LIGHTS = 3;
 static constexpr Vec3f rocketStartPos = { 0.0f, 0.0f, 0.0f };
@@ -56,11 +59,11 @@ namespace
     constexpr char const* kWindowTitle = "COMP3811 - CW2";
 
     constexpr float kMovementPerSecond_ = 5.f;     // movement units per second
-    constexpr float kMouseSensitivity_  = 0.01f;   // radians per pixel
+    constexpr float kMouseSensitivity_ = 0.01f;   // radians per pixel
 
     constexpr float rocketAcceleration_ = 0.1f;
 
-    using Clock    = std::chrono::high_resolution_clock;
+    using Clock = std::chrono::high_resolution_clock;
     using Secondsf = std::chrono::duration<float>;
 
     // --------------- Camera Mode ---------------
@@ -73,8 +76,8 @@ namespace
     // --------------- Program State ---------------
     struct State_
     {
-        // Fontstash context to for text rendering
-        FONScontext* fs = NULL
+        // Font loading and rendering
+        FONScontext* fsContext = nullptr;
 
         // Shaders
         ShaderProgram* prog = nullptr;
@@ -91,33 +94,33 @@ namespace
         // Each camera has its own control
         struct CamCtrl_
         {
-            float FAST_SPEED_MULT  = 2.f;
-            float SLOW_SPEED_MULT  = 0.1f;
-            float NORMAL_SPEED_MULT= 0.5f;
+            float FAST_SPEED_MULT = 2.f;
+            float SLOW_SPEED_MULT = 0.1f;
+            float NORMAL_SPEED_MULT = 0.5f;
 
             bool movingForward = false;
-            bool movingBack    = false;
-            bool movingLeft    = false;
-            bool movingRight   = false;
-            bool movingUp      = false;
-            bool movingDown    = false;
+            bool movingBack = false;
+            bool movingLeft = false;
+            bool movingRight = false;
+            bool movingUp = false;
+            bool movingDown = false;
 
             // Orientation
             Vec4f position = { 0.0f, 5.0f, 0.0f, 1.0f };
-            Vec4f forward  = { 0.0f, 0.0f, -1.0f, 0.0f };
-            Vec4f right    = { 1.0f, 0.0f, 0.0f, 0.0f };
-            Vec4f up       = { 0.0f, 1.0f, 0.0f, 0.0f };
+            Vec4f forward = { 0.0f, 0.0f, -1.0f, 0.0f };
+            Vec4f right = { 1.0f, 0.0f, 0.0f, 0.0f };
+            Vec4f up = { 0.0f, 1.0f, 0.0f, 0.0f };
 
-            bool cameraActive    = false;
-            bool actionZoomIn    = false;
-            bool actionZoomOut   = false;
+            bool cameraActive = false;
+            bool actionZoomIn = false;
+            bool actionZoomOut = false;
 
-            float phi   = 0.0f;  // yaw
+            float phi = 0.0f;  // yaw
             float theta = 0.0f;  // pitch
-            float radius= 10.f;
-            float speed_multiplier= NORMAL_SPEED_MULT;
+            float radius = 10.f;
+            float speed_multiplier = NORMAL_SPEED_MULT;
 
-            float lastX=0.f, lastY=0.f, lastTheta=0.f;
+            float lastX = 0.f, lastY = 0.f, lastTheta = 0.f;
         };
 
         CamCtrl_ cam1;  // First camera controls
@@ -125,12 +128,12 @@ namespace
 
         // -------------- Point Lights --------------
         struct PointLight {
-            Vec3f position;  
-            float padding1;  
-            Vec3f color;     
-            float padding2;  
-            Vec3f normals;   
-            float radius;    
+            Vec3f position;
+            float padding1;
+            Vec3f color;
+            float padding2;
+            Vec3f normals;
+            float radius;
         };
 
         struct PointLightBlock {
@@ -145,7 +148,7 @@ namespace
             float acceleration = rocketAcceleration_;
             float time = 0.f;
             bool isMoving = false;
-            float pitch=0.f, yaw=0.f;
+            float pitch = 0.f, yaw = 0.f;
 
             Vec4f enginePosition = { 0.f, 0.f, 0.f, 1.f };
             Vec4f engineDirection = { 0.f, 0.f, 0.f, 1.f };
@@ -162,15 +165,15 @@ namespace
                 position = rocketStartPos;
                 velocity = { 0.0f, 0.0f, 0.0f };
                 acceleration = rocketAcceleration_;
-                time=0.f;
-                isMoving=false;
-                pitch=0.f;
+                time = 0.f;
+                isMoving = false;
+                pitch = 0.f;
                 particleTimer = 0.f;
                 particles.clear();
             }
         } rcktCtrl;
 
-        float chaseDistance = 1.0f;            
+        float chaseDistance = 1.0f;
         Vec3f groundCameraPos = { -5.f, 1.0f, 0.f };
     };
 
@@ -184,25 +187,25 @@ namespace
     void updateRocket(State_::rcktCtrl_& rocket, float dt);
 
     Mat44f compute_view_matrix_for_camera(const State_::CamCtrl_& camCtrl,
-                                          CameraMode mode,
-                                          const State_& state);
+        CameraMode mode,
+        const State_& state);
 
     GLuint setPointLights(State_::PointLight pointLights[MAX_POINT_LIGHTS], SimpleMeshData rocketPos);
 
     void updatePointLights(Mat44f rocketPosition, SimpleMeshData rocketData, State_::PointLight pointLights[MAX_POINT_LIGHTS]);
 
     void updatePointLightUBO(GLuint pointLightUBO,
-                             State_::PointLight pointLights[MAX_POINT_LIGHTS]);
+        State_::PointLight pointLights[MAX_POINT_LIGHTS]);
 
     // This function: draws the entire scene for one camera's view+proj
     void renderScene(State_& state,
-                     const Mat44f& view,
-                     const Mat44f& projection,
-                     // Below are references to the various VAOs & meshes:
-                     GLuint langersoVao, const SimpleMeshData& langersoMesh, GLuint langersoTextureId, size_t langersoCount,
-                     GLuint rocketVao,   const SimpleMeshData& rocketMesh,   size_t rocketCount,
-                     GLuint launchpadVao, const SimpleMeshData& launchpadMesh, size_t launchpadCount,
-                     GLuint particleTextureId);
+        const Mat44f& view,
+        const Mat44f& projection,
+        // Below are references to the various VAOs & meshes:
+        GLuint langersoVao, const SimpleMeshData& langersoMesh, GLuint langersoTextureId, size_t langersoCount,
+        GLuint rocketVao, const SimpleMeshData& rocketMesh, size_t rocketCount,
+        GLuint launchpadVao, const SimpleMeshData& launchpadMesh, size_t launchpadCount,
+        GLuint particleTextureId);
 
     // RAII-like helpers
     struct GLFWCleanupHelper
@@ -211,7 +214,7 @@ namespace
     };
     struct GLFWWindowDeleter
     {
-        ~GLFWWindowDeleter() { if(window) glfwDestroyWindow(window); }
+        ~GLFWWindowDeleter() { if (window) glfwDestroyWindow(window); }
         GLFWwindow* window;
     };
 
@@ -231,6 +234,11 @@ namespace
             // Press V to toggle split screen:
             if (aKey == GLFW_KEY_V && aAction == GLFW_PRESS) {
                 state->isSplitScreen = !state->isSplitScreen;
+                /*if (state->fsContext != nullptr)
+                {
+                    state->fsContext->g
+                }*/
+                
             }
 
             // Press C to cycle camera 1's mode:
@@ -245,7 +253,7 @@ namespace
             // Press Shift + C to cycle camera 2's mode:
             if (aKey == GLFW_KEY_C && (mods & GLFW_MOD_SHIFT) && aAction == GLFW_PRESS) {
                 switch (state->cameraMode2) {
-                //case CameraMode::FREE:   state->cameraMode2 = CameraMode::CHASE;   break;
+                    //case CameraMode::FREE:   state->cameraMode2 = CameraMode::CHASE;   break;
                 case CameraMode::CHASE:  state->cameraMode2 = CameraMode::GROUND; break;
                 case CameraMode::GROUND: state->cameraMode2 = CameraMode::CHASE;   break;
                 }
@@ -520,7 +528,7 @@ namespace
             );
         }
 
-        // (2) Chase camera
+                             // (2) Chase camera
         case CameraMode::CHASE:
         {
             // Chase from behind the rocket at a fixed distance
@@ -656,7 +664,7 @@ namespace
             printf("Direction: (%f, %f, %f)\n", direction.x, direction.y, direction.z);*/
         }
         else
-            rocket.particleTimer = 1.f;
+            rocket.particleTimer = 0.f;
     }
 } // end anonymous namespace
 
@@ -667,7 +675,7 @@ int main() try
     // Initialize GLFW
     if (GLFW_TRUE != glfwInit())
     {
-        char const* msg=nullptr;
+        char const* msg = nullptr;
         int ecode = glfwGetError(&msg);
         throw Error("glfwInit() failed with '%s' (%d)", msg, ecode);
     }
@@ -678,30 +686,30 @@ int main() try
 
     // Window hints
 #   if !defined(__APPLE__)
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 #   else
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,1);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 #   endif
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT,GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #   if !defined(NDEBUG)
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
 #   endif
 
     // Create window
     GLFWwindow* window = glfwCreateWindow(1280, 720,
-                                          kWindowTitle,
-                                          nullptr,nullptr);
-    if(!window)
+        kWindowTitle,
+        nullptr, nullptr);
+    if (!window)
     {
-        char const* msg=nullptr;
+        char const* msg = nullptr;
         int ecode = glfwGetError(&msg);
         throw Error("glfwCreateWindow() failed with '%s' (%d)", msg, ecode);
     }
-    GLFWWindowDeleter windowDeleter{window};
+    GLFWWindowDeleter windowDeleter{ window };
 
     // Set up user pointer
     State_ state{};
@@ -717,7 +725,7 @@ int main() try
     glfwSwapInterval(1); // vsync
 
     // Init GLAD
-    if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
         throw Error("Failed to initialize GLAD!");
 
     std::printf("RENDERER                   %s\n", glGetString(GL_RENDERER));
@@ -732,7 +740,7 @@ int main() try
     OGL_CHECKPOINT_ALWAYS();
 
     // Global GL state
-    glClearColor(0.2f,0.2f,0.2f,0.0f);
+    glClearColor(0.2f, 0.2f, 0.2f, 0.0f);
     glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_DEPTH_TEST);
     // glEnable(GL_CULL_FACE);
@@ -745,13 +753,13 @@ int main() try
     // Framebuffer size
     int iwidth, iheight;
     glfwGetFramebufferSize(window, &iwidth, &iheight);
-    glViewport(0,0,iwidth,iheight);
+    glViewport(0, 0, iwidth, iheight);
 
     // Load shaders
     ShaderProgram prog({
         {GL_VERTEX_SHADER,   "assets/cw2/default.vert"},
         {GL_FRAGMENT_SHADER, "assets/cw2/default.frag"}
-    });
+        });
     state.prog = &prog;
 
     ShaderProgram particleShader({
@@ -766,6 +774,16 @@ int main() try
         });
     state.textShader = &textShader;
 
+    // -------------- Load fonts --------------
+    state.fsContext = glfonsCreate(1280, 720, FONS_ZERO_TOPLEFT, textShader.programId());
+
+    int fontSans = FONS_INVALID;
+    fontSans = fonsAddFont(state.fsContext, "sans", DSMD_FONT_ASSET_PATH.c_str());
+    if (fontSans == FONS_INVALID) {
+        printf("Could not add font normal.\n");
+        return -1;
+    }
+
     // -------------- Load all meshes & textures --------------
     // Langerso
     auto langersoMesh = load_wavefront_obj(LANGERSO_OBJ_ASSET_PATH.c_str(), true);
@@ -777,7 +795,7 @@ int main() try
     auto launchpadMesh = load_wavefront_obj(
         LAUNCHPAD_OBJ_ASSET_PATH.c_str(),
         false,
-        make_translation({ 2.f, 0.005f, -2.f}) * make_scaling(0.5f, 0.5f, 0.5f)
+        make_translation({ 2.f, 0.005f, -2.f }) * make_scaling(0.5f, 0.5f, 0.5f)
     );
     GLuint launchpadVao = create_vao(launchpadMesh);
     size_t launchpadVertexCount = launchpadMesh.positions.size();
@@ -785,8 +803,8 @@ int main() try
     // Rocket
     auto rocketMesh = create_spaceship(
         32,
-        {0.2f, 0.2f, 0.2f}, {0.8f, 0.2f, 0.2f}, // body & fin colors
-        make_translation({2.f,0.15f,-2.f}) * make_scaling(0.05f,0.05f,0.05f),
+        { 0.2f, 0.2f, 0.2f }, { 0.8f, 0.2f, 0.2f }, // body & fin colors
+        make_translation({ 2.f,0.15f,-2.f }) * make_scaling(0.05f, 0.05f, 0.05f),
         false
     );
     GLuint rocketVao = create_vao(rocketMesh);
@@ -794,18 +812,10 @@ int main() try
     state.rcktCtrl.enginePosition = rocketMesh.engineLocation;
     state.rcktCtrl.engineDirection = rocketMesh.engineDirection;
 
+
     // Particles
     setupParticleSystem();
     GLuint particleTextureId = load_texture_2d_with_alpha(PARTICLE_TEXTURE_ASSET_PATH.c_str());
-
-    // Text
-    state.fs = openGLFonsCreate(1280, 720, FONS_ZERO_TOPLEFT);
-    if (fs == NULL) {
-        printf("Could not create stash.\n");
-        return -1;
-    }
-
-    int fontSans = 
 
     // -------------- Set up lights --------------
     State_::PointLight pointLights[MAX_POINT_LIGHTS];
@@ -815,29 +825,48 @@ int main() try
 
     // -------------- Timing variables --------------
     auto last = Clock::now();
+    int lastwSize = 1280;
+    int lasthSize = 720;
+
+    int lastXPosWindow = 0;
+    int lastYPosWindow = 0;
 
     // Main loop
-    while(!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
 
         // Check for window resizing
-        int w,h;
+        int w, h, XPosWindow, YPosWindow;
         glfwGetFramebufferSize(window, &w, &h);
-        if (w<=0 || h<=0)
+        glfwGetWindowPos(window, &XPosWindow, &YPosWindow);
+        if (w <= 0 || h <= 0 || w != lastwSize || h != lasthSize || lastXPosWindow != XPosWindow || lastYPosWindow != YPosWindow)
         {
             // Minimized? wait
             do {
+                // Compute dt
+                // Computing clock here will compute for small dt instead of outputting massive amounts of partices when unminimised
+                // This will effectively pause the animations while minimised
+                auto now = Clock::now();
+                last = now;
+
+                //state.rcktCtrl.particleTimer = 0.f;
                 glfwWaitEvents();
-                glfwGetFramebufferSize(window,&w,&h);
-            } while(w<=0 || h<=0);
+                glfwGetFramebufferSize(window, &w, &h);
+            } while (w <= 0 || h <= 0);
+
+            fonsResetAtlas(state.fsContext, w, h);
         }
-        glViewport(0,0,w,h);
+        glViewport(0, 0, w, h);
 
         // Compute dt
-        auto now   = Clock::now();
-        float dt   = std::chrono::duration_cast<Secondsf>(now - last).count();
-        last       = now;
+        auto now = Clock::now();
+        float dt = std::chrono::duration_cast<Secondsf>(now - last).count();
+        last = now;
+        lasthSize = h;
+        lastwSize = w;
+        lastXPosWindow = XPosWindow;
+        lastYPosWindow = YPosWindow;
 
         // Update cameras
         updateCamera(state.cam1, dt);
@@ -848,15 +877,15 @@ int main() try
 
         // Update point lights
         updatePointLights(state.rcktCtrl.model2worldRocket,
-                          rocketMesh,
-                          pointLights);
+            rocketMesh,
+            pointLights);
         updatePointLightUBO(pointLightUBO, pointLights);
 
 
         // Update patricle system
         state.rcktCtrl.particleTimer += dt;  // Accumulate time
 
-        
+
 
         // Update particles
         if (state.rcktCtrl.isMoving)
@@ -871,24 +900,24 @@ int main() try
             // Build a single projection
             Mat44f proj = make_perspective_projection(
                 60.f * std::numbers::pi_v<float> / 180.f,
-                float(w)/ float(h),
+                float(w) / float(h),
                 0.1f, 100.f
             );
 
             // We'll use camera #1 and its mode for single-view
             Mat44f view = compute_view_matrix_for_camera(
-                              state.cam1, 
-                              state.cameraMode1, 
-                              state
-                          );
+                state.cam1,
+                state.cameraMode1,
+                state
+            );
 
             // Render
             renderScene(
                 state,
                 view, proj,
                 langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
-                rocketVao,   rocketMesh,                   rocketVertexCount,
-                launchpadVao, launchpadMesh,               launchpadVertexCount,
+                rocketVao, rocketMesh, rocketVertexCount,
+                launchpadVao, launchpadMesh, launchpadVertexCount,
                 particleTextureId
             );
         }
@@ -899,61 +928,72 @@ int main() try
             // then the top half with camera2
 
             // ============= BOTTOM HALF =============
-            glViewport(0,0, w, h/2);
+            glViewport(0, 0, w, h / 2);
 
             Mat44f proj1 = make_perspective_projection(
                 60.f * std::numbers::pi_v<float> / 180.f,
-                float(w)/ float(h/2),      // aspect 
+                float(w) / float(h / 2),      // aspect 
                 0.1f, 100.f
             );
             Mat44f view1 = compute_view_matrix_for_camera(
-                               state.cam1,
-                               state.cameraMode1,
-                               state
-                           );
+                state.cam1,
+                state.cameraMode1,
+                state
+            );
 
             renderScene(
                 state,
                 view1, proj1,
                 langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
-                rocketVao,   rocketMesh,                   rocketVertexCount,
-                launchpadVao, launchpadMesh,               launchpadVertexCount,
+                rocketVao, rocketMesh, rocketVertexCount,
+                launchpadVao, launchpadMesh, launchpadVertexCount,
                 particleTextureId
             );
 
             // ============= TOP HALF =============
-            glViewport(0, h/2, w, h/2);
+            glViewport(0, h / 2, w, h / 2);
 
             Mat44f proj2 = make_perspective_projection(
                 60.f * std::numbers::pi_v<float> / 180.f,
-                float(w)/ float(h/2),      // aspect
+                float(w) / float(h / 2),      // aspect
                 0.1f, 100.f
             );
             Mat44f view2 = compute_view_matrix_for_camera(
-                               state.cam2,
-                               state.cameraMode2,
-                               state
-                           );
+                state.cam2,
+                state.cameraMode2,
+                state
+            );
 
             renderScene(
                 state,
                 view2, proj2,
                 langersoVao, langersoMesh, langersoTextureId, langersoVertexCount,
-                rocketVao,   rocketMesh,                   rocketVertexCount,
-                launchpadVao, launchpadMesh,               launchpadVertexCount,
+                rocketVao, rocketMesh, rocketVertexCount,
+                launchpadVao, launchpadMesh, launchpadVertexCount,
                 particleTextureId
             );
         }
+        glViewport(0, 0, w, h);
+
+
+        std::string altitudeText = std::format("Altitude: {:.4f}", state.rcktCtrl.position.y);
+
+
+        renderText(state.fsContext, altitudeText.c_str(), 10.0f, 20.0f, 20.0f, glfonsRGBA(255, 255, 255, 255), fontSans); // White text
 
         // Swap buffers
         glfwSwapBuffers(window);
     }
 
+    
+
+
+
     // Cleanup
-    state.prog = nullptr;    
+    state.prog = nullptr;
     return 0;
 }
-catch(std::exception const& eErr)
+catch (std::exception const& eErr)
 {
     std::fprintf(stderr, "Top-level Exception (%s):\n", typeid(eErr).name());
     std::fprintf(stderr, "%s\n", eErr.what());
@@ -969,20 +1009,20 @@ namespace
     // This function draws all objects (Langerso, Rocket, Launchpads, etc.)
     // for a single camera's "view" and "projection".
     void renderScene(State_& state,
-                     const Mat44f& view,
-                     const Mat44f& projection,
-                     GLuint langersoVao, const SimpleMeshData& langersoMesh, GLuint langersoTextureId, size_t langersoCount,
-                     GLuint rocketVao,   const SimpleMeshData& rocketMesh, size_t rocketCount,
-                     GLuint launchpadVao,const SimpleMeshData& launchpadMesh, size_t launchpadCount,
-                     GLuint particleTextureId
+        const Mat44f& view,
+        const Mat44f& projection,
+        GLuint langersoVao, const SimpleMeshData& langersoMesh, GLuint langersoTextureId, size_t langersoCount,
+        GLuint rocketVao, const SimpleMeshData& rocketMesh, size_t rocketCount,
+        GLuint launchpadVao, const SimpleMeshData& launchpadMesh, size_t launchpadCount,
+        GLuint particleTextureId
     )
     {
         // Use the shader program
         glUseProgram(state.prog->programId());
 
         // Common light direction & color
-        Vec3f lightDir = normalize(Vec3f{0.f, 1.f, -1.f});
-        glUniform3fv(2,1, &lightDir.x);
+        Vec3f lightDir = normalize(Vec3f{ 0.f, 1.f, -1.f });
+        glUniform3fv(2, 1, &lightDir.x);
         glUniform3f(3, 0.678f, 0.847f, 0.902f);
         glUniform3f(4, 0.05f, 0.05f, 0.05f);
 
@@ -992,15 +1032,15 @@ namespace
             Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
             Mat44f mvp = projection * view * model2world;
 
-            glUniformMatrix4fv(0,1,GL_TRUE, mvp.v);
-            glUniformMatrix3fv(1,1,GL_TRUE, normalMatrix.v);
+            glUniformMatrix4fv(0, 1, GL_TRUE, mvp.v);
+            glUniformMatrix3fv(1, 1, GL_TRUE, normalMatrix.v);
 
             // Texture:
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, langersoTextureId);
             glUniform1i(5, langersoMesh.isTextureSupplied);  // location=5
 
-            glUniform2f(6, langersoMesh.mins.x,  langersoMesh.mins.y);   // location=6
+            glUniform2f(6, langersoMesh.mins.x, langersoMesh.mins.y);   // location=6
             glUniform2f(7, langersoMesh.diffs.x, langersoMesh.diffs.y); // location=7
 
             glBindVertexArray(langersoVao);
@@ -1013,10 +1053,10 @@ namespace
         {
             Mat44f model2world = state.rcktCtrl.model2worldRocket;
             Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
-            Mat44f mvp          = projection * view * model2world;
+            Mat44f mvp = projection * view * model2world;
 
-            glUniformMatrix4fv(0,1,GL_TRUE, mvp.v);
-            glUniformMatrix3fv(1,1,GL_TRUE, normalMatrix.v);
+            glUniformMatrix4fv(0, 1, GL_TRUE, mvp.v);
+            glUniformMatrix3fv(1, 1, GL_TRUE, normalMatrix.v);
             glUniform1i(5, rocketMesh.isTextureSupplied);
 
             glBindVertexArray(rocketVao);
@@ -1028,10 +1068,10 @@ namespace
             // For convenience, let's say the loaded mesh is already pre-transformed
             Mat44f model2world = kIdentity44f;
             Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
-            Mat44f mvp          = projection * view * model2world;
+            Mat44f mvp = projection * view * model2world;
 
-            glUniformMatrix4fv(0,1,GL_TRUE, mvp.v);
-            glUniformMatrix3fv(1,1,GL_TRUE, normalMatrix.v);
+            glUniformMatrix4fv(0, 1, GL_TRUE, mvp.v);
+            glUniformMatrix3fv(1, 1, GL_TRUE, normalMatrix.v);
             glUniform1i(5, launchpadMesh.isTextureSupplied);
 
             glBindVertexArray(launchpadVao);
@@ -1041,12 +1081,12 @@ namespace
         // 4) -------------- Launchpad #2 --------------
         {
             // Another instance of the same mesh, but with an offset transform
-            Mat44f model2world = make_translation({3.f,0.f,-5.f});
+            Mat44f model2world = make_translation({ 3.f,0.f,-5.f });
             Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
-            Mat44f mvp          = projection * view * model2world;
+            Mat44f mvp = projection * view * model2world;
 
-            glUniformMatrix4fv(0,1,GL_TRUE, mvp.v);
-            glUniformMatrix3fv(1,1,GL_TRUE, normalMatrix.v);
+            glUniformMatrix4fv(0, 1, GL_TRUE, mvp.v);
+            glUniformMatrix3fv(1, 1, GL_TRUE, normalMatrix.v);
             glUniform1i(5, launchpadMesh.isTextureSupplied);
 
             glBindVertexArray(launchpadVao);
@@ -1054,11 +1094,10 @@ namespace
         }
 
         // 5) -------------- Particle Exhaust --------------
-        {           
+        {
             renderParticles(state.rcktCtrl.particles, state.particleShader->programId(), particleTextureId, projection * view);
         }
     }
 
 } // end namespace
-
 
