@@ -17,7 +17,7 @@ public:
 
     struct ButtonColors {
         float neutralFill[4] = { 0.7f, 0.7f, 0.7f, 0.6f };
-        float hoverFill[4] = { 0.6f, 0.6f, 0.6f, 0.6f };
+        float hoverFill[4] = { 0.5f, 0.9f, 0.5f, 0.6f };
         float pressedFill[4] = { 0.3f, 0.3f, 0.3f, 0.6f };
         float border[4] = { 0.0f, 0.0f, 0.0f, 0.6f };
         float textColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
