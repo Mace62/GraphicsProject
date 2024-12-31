@@ -262,6 +262,7 @@ namespace
             // Press Shift + C to cycle camera 2's mode:
             if (aKey == GLFW_KEY_C && (mods & GLFW_MOD_SHIFT) && aAction == GLFW_PRESS) {
                 switch (state->cameraMode2) {
+                case CameraMode::FREE:   break;
                 case CameraMode::CHASE:  state->cameraMode2 = CameraMode::GROUND; break;
                 case CameraMode::GROUND: state->cameraMode2 = CameraMode::CHASE;   break;
                 }
