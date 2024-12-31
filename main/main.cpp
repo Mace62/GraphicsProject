@@ -1,4 +1,6 @@
-﻿#include <glad/glad.h>
+﻿#define ENABLE_PERFORMANCE_METRICS
+
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <numbers>
@@ -11,7 +13,7 @@
 #include <filesystem>
 #include <string>
 #include <iostream>
-#include <chrono>       // For timing logic
+#include <chrono>       
 #include <format>
 
 #include "../support/error.hpp"
@@ -37,7 +39,7 @@
 extern "C"
 {
     __declspec(dllexport) unsigned long NvOptimusEnablement = 1;
-    __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1; // untested
+    __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1; 
 }
 #endif
 
@@ -86,17 +88,20 @@ namespace
         ShaderProgram* textShader = nullptr;
         ShaderProgram* buttonShader = nullptr;
 
-        // Vector of buttons
         std::vector<Button> buttons;
 
-        // Split-screen
         bool isSplitScreen = false;
 
-        // We have two camera modes, one for each subview
         CameraMode cameraMode1 = CameraMode::FREE;
         CameraMode cameraMode2 = CameraMode::CHASE;
 
-        // Each camera has its own control
+        bool keyPressC = false;
+        bool keyPressShiftC = false;
+        bool keyPressV = false;
+        bool keyPressF = false;
+
+        bool cameraMovement = false;
+
         struct CamCtrl_
         {
             float FAST_SPEED_MULT = 2.f;
@@ -238,7 +243,10 @@ namespace
         if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow))) {
             // Press V to toggle split screen:
             if (aKey == GLFW_KEY_V && aAction == GLFW_PRESS) {
-                state->isSplitScreen = !state->isSplitScreen;                
+                state->isSplitScreen = !state->isSplitScreen;   
+#ifdef ENABLE_PERFORMANCE_METRICS
+                state->keyPressV = true;
+#endif
             }
 
             // Press C to cycle camera 1's mode:
@@ -248,20 +256,28 @@ namespace
                 case CameraMode::CHASE:  state->cameraMode1 = CameraMode::GROUND; break;
                 case CameraMode::GROUND: state->cameraMode1 = CameraMode::FREE;   break;
                 }
+#ifdef ENABLE_PERFORMANCE_METRICS
+                state->keyPressC = true;
+#endif
             }
 
             // Press Shift + C to cycle camera 2's mode:
             if (aKey == GLFW_KEY_C && (mods & GLFW_MOD_SHIFT) && aAction == GLFW_PRESS) {
                 switch (state->cameraMode2) {
-                    //case CameraMode::FREE:   state->cameraMode2 = CameraMode::CHASE;   break;
                 case CameraMode::CHASE:  state->cameraMode2 = CameraMode::GROUND; break;
                 case CameraMode::GROUND: state->cameraMode2 = CameraMode::CHASE;   break;
                 }
+#ifdef ENABLE_PERFORMANCE_METRICS
+                state->keyPressShiftC = true;
+#endif
             }
 
             // Start rocket animation with 'F'
             if (GLFW_KEY_F == aKey && GLFW_PRESS == aAction) {
                 state->rcktCtrl.isMoving = !state->rcktCtrl.isMoving;
+#ifdef ENABLE_PERFORMANCE_METRICS
+                state->keyPressF = true;
+#endif
             }
             // R-key reloads shaders.
             if (GLFW_KEY_R == aKey && GLFW_PRESS == aAction) {
@@ -333,7 +349,7 @@ namespace
                 state->cam1.phi += dx * kMouseSensitivity_;
                 state->cam1.theta += dy * kMouseSensitivity_;
 
-                // Limit pitch to +/- 90°, same as before
+                // Limit pitch to +/- 90°
                 if (state->cam1.theta > std::numbers::pi_v<float> / 2.f)
                     state->cam1.theta = state->cam1.lastTheta;
                 else if (state->cam1.theta < -std::numbers::pi_v<float> / 2.f)
@@ -528,7 +544,6 @@ namespace
             );
         }
 
-                             // (2) Chase camera
         case CameraMode::CHASE:
         {
             // Chase from behind the rocket at a fixed distance
@@ -550,7 +565,6 @@ namespace
             );
         }
 
-        // (3) Ground camera
         case CameraMode::GROUND:
         {
             // Always stay at groundCameraPos, look at rocket.
@@ -584,7 +598,7 @@ namespace
             rocket.time += dt;
 
             // Define the direction vector for the rocket's motion after 5 seconds
-            Vec3f newDirection = normalize(Vec3f(3.0f, 1.0f, -3.5f)); // Example direction vector (change as needed)
+            Vec3f newDirection = normalize(Vec3f(3.0f, 1.0f, -3.5f)); 
 
             // Initialize the acceleration vector based on the time elapsed
             Vec3f accelerationVector;
@@ -668,6 +682,120 @@ namespace
     }
 } // end anonymous namespace
 
+#ifdef ENABLE_PERFORMANCE_METRICS
+static constexpr int MAX_FRAMES_IN_FLIGHT = 3;
+
+// Queries
+static GLuint g_timestampFrameStart[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampFrameEnd[MAX_FRAMES_IN_FLIGHT];
+
+static GLuint g_timestampTerrainStart[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampTerrainEnd[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampLaunchpadsStart[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampLaunchpadsEnd[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampSpaceshipStart[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampSpaceshipEnd[MAX_FRAMES_IN_FLIGHT];
+
+// Sub-views
+static GLuint g_timestampViewAStart[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampViewAEnd[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampViewBStart[MAX_FRAMES_IN_FLIGHT];
+static GLuint g_timestampViewBEnd[MAX_FRAMES_IN_FLIGHT];
+
+// CPU times
+static double g_cpuRenderTimes[MAX_FRAMES_IN_FLIGHT] = {};
+static double g_cpuFrameTimes[MAX_FRAMES_IN_FLIGHT] = {};
+
+static int g_currentFrameIndex = 0;
+static int g_totalFrameCount = 0;
+
+#include <fstream>
+static std::ofstream g_csvOut;
+
+// This function retrieves queries for a given older frame and writes CSV
+static void retrieveQueries(int frameIndex, State_& state)
+{
+    GLuint64 fs = 0, fe = 0;
+    glGetQueryObjectui64v(g_timestampFrameStart[frameIndex], GL_QUERY_RESULT, &fs);
+    glGetQueryObjectui64v(g_timestampFrameEnd[frameIndex], GL_QUERY_RESULT, &fe);
+    double frameMs = double(fe - fs) * 1e-6;
+
+    // Terrain
+    GLuint64 tS = 0, tE = 0;
+    glGetQueryObjectui64v(g_timestampTerrainStart[frameIndex], GL_QUERY_RESULT, &tS);
+    glGetQueryObjectui64v(g_timestampTerrainEnd[frameIndex], GL_QUERY_RESULT, &tE);
+    double terrainMs = double(tE - tS) * 1e-6;
+
+    // Launchpads
+    GLuint64 lS = 0, lE = 0;
+    glGetQueryObjectui64v(g_timestampLaunchpadsStart[frameIndex], GL_QUERY_RESULT, &lS);
+    glGetQueryObjectui64v(g_timestampLaunchpadsEnd[frameIndex], GL_QUERY_RESULT, &lE);
+    double launchpadsMs = double(lE - lS) * 1e-6;
+
+    // Spaceship
+    GLuint64 sS = 0, sE = 0;
+    glGetQueryObjectui64v(g_timestampSpaceshipStart[frameIndex], GL_QUERY_RESULT, &sS);
+    glGetQueryObjectui64v(g_timestampSpaceshipEnd[frameIndex], GL_QUERY_RESULT, &sE);
+    double spaceshipMs = double(sE - sS) * 1e-6;
+
+    // View A
+    GLuint64 vaS = 0, vaE = 0;
+    glGetQueryObjectui64v(g_timestampViewAStart[frameIndex], GL_QUERY_RESULT, &vaS);
+    glGetQueryObjectui64v(g_timestampViewAEnd[frameIndex], GL_QUERY_RESULT, &vaE);
+    double viewAMs = double(vaE - vaS) * 1e-6;
+
+    // View B
+    GLuint64 vbS = 0, vbE = 0;
+    glGetQueryObjectui64v(g_timestampViewBStart[frameIndex], GL_QUERY_RESULT, &vbS);
+    glGetQueryObjectui64v(g_timestampViewBEnd[frameIndex], GL_QUERY_RESULT, &vbE);
+    double viewBMs = double(vbE - vbS) * 1e-6;
+
+    double cpuRenderMs = g_cpuRenderTimes[frameIndex];
+    double cpuFrameMs = g_cpuFrameTimes[frameIndex];
+
+    // Gather user input flags
+    int keyC = (state.keyPressC ? 1 : 0);
+    int keyShiftC = (state.keyPressShiftC ? 1 : 0);
+    int keyV = (state.keyPressV ? 1 : 0);
+    int keyF = (state.keyPressF ? 1 : 0);
+    int cameraMoved = (state.cameraMovement ? 1 : 0);
+    int splitted = (state.isSplitScreen ? 1 : 0);
+
+    // Convert camera modes to int
+    auto toCamInt = [](CameraMode cm)->int {
+        switch (cm) {
+        case CameraMode::FREE:   return 0;
+        case CameraMode::CHASE:  return 1;
+        case CameraMode::GROUND: return 2;
+        }
+        return 0;
+        };
+    int cam1Mode = toCamInt(state.cameraMode1);
+    int cam2Mode = toCamInt(state.cameraMode2);
+
+    if (g_csvOut.is_open())
+    {
+        g_csvOut << g_totalFrameCount << ","
+            << frameMs << ","
+            << terrainMs << ","
+            << launchpadsMs << ","
+            << spaceshipMs << ","
+            << viewAMs << ","
+            << viewBMs << ","
+            << cpuRenderMs << ","
+            << cpuFrameMs << ","
+            << keyC << ","
+            << keyShiftC << ","
+            << keyV << ","
+            << keyF << ","
+            << cameraMoved << ","
+            << splitted << ","
+            << cam1Mode << ","
+            << cam2Mode
+            << "\n";
+    }
+}
+#endif
 
 // ------------------ Main ------------------
 int main() try
@@ -797,11 +925,11 @@ int main() try
     Button resetButton(0.55f, 0.1f, 0.2f, 0.08f, "Reset rocket", state.fsContext, fontSans, buttonShader.programId());
 
     // Set click handlers
-    launchButton.setOnClick([&state]() {  // Added state capture
+    launchButton.setOnClick([&state]() {  
         state.rcktCtrl.isMoving = true;  // Actually set the value
     });
 
-    resetButton.setOnClick([&state]() {  // Added state capture
+    resetButton.setOnClick([&state]() {  
         state.rcktCtrl.reset();
     });
 
@@ -845,6 +973,31 @@ int main() try
 
     OGL_CHECKPOINT_ALWAYS();
 
+#ifdef ENABLE_PERFORMANCE_METRICS
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampFrameStart);
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampFrameEnd);
+
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampTerrainStart);
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampTerrainEnd);
+
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampLaunchpadsStart);
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampLaunchpadsEnd);
+
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampSpaceshipStart);
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampSpaceshipEnd);
+
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewAStart);
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewAEnd);
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewBStart);
+    glGenQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewBEnd);
+
+    g_csvOut.open("performance.csv", std::ios::out);
+    g_csvOut << "Frame,FrameGPUTime,TerrainGPUTime,LaunchpadsGPUTime,SpaceshipGPUTime,"
+        << "ViewAGPUTime,ViewBGPUTime,CPURenderTime,CPUFrameTime,"
+        << "KeyPressC,KeyPressShiftC,KeyPressV,KeyPressF,"
+        << "CameraMovement,SplitScreenEnabled,Camera1Mode,Camera2Mode\n";
+#endif
+
     // -------------- Timing variables --------------
     auto last = Clock::now();
     int lastwSize = 1280;
@@ -856,6 +1009,9 @@ int main() try
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
+        // By default, assume no camera movement
+        state.cameraMovement = false;
+
         glfwPollEvents();
 
         // Check for window resizing
@@ -864,11 +1020,8 @@ int main() try
         glfwGetWindowPos(window, &XPosWindow, &YPosWindow);
         if (w <= 0 || h <= 0 || w != lastwSize || h != lasthSize || lastXPosWindow != XPosWindow || lastYPosWindow != YPosWindow)
         {
-            // Minimized? wait
             do {
-                // Compute dt
-                // Computing clock here will compute for small dt instead of outputting massive amounts of partices when unminimised
-                // This will effectively pause the animations while minimised
+                // Pause when minimized
                 auto now = Clock::now();
                 last = now;
 
@@ -889,6 +1042,16 @@ int main() try
         lastwSize = w;
         lastXPosWindow = XPosWindow;
         lastYPosWindow = YPosWindow;
+
+#ifdef ENABLE_PERFORMANCE_METRICS
+        auto cpuFrameStart = Clock::now();
+        glQueryCounter(g_timestampFrameStart[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
+
+        bool anyMove = (state.cam1.movingForward || state.cam1.movingBack ||
+            state.cam1.movingLeft || state.cam1.movingRight ||
+            state.cam1.movingUp || state.cam1.movingDown);
+        state.cameraMovement = anyMove;
 
         // Update cameras
         updateCamera(state.cam1, dt);
@@ -916,6 +1079,13 @@ int main() try
         // Prepare once for entire frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+#ifdef ENABLE_PERFORMANCE_METRICS
+            auto cpuRenderStart = Clock::now();
+
+        // Always do these queries so they're "used" each frame
+        glQueryCounter(g_timestampViewAStart[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
+
         // If not split-screen, we do a single render:
         if (!state.isSplitScreen)
         {
@@ -926,7 +1096,6 @@ int main() try
                 0.1f, 100.f
             );
 
-            // We'll use camera #1 and its mode for single-view
             Mat44f view = compute_view_matrix_for_camera(
                 state.cam1,
                 state.cameraMode1,
@@ -945,11 +1114,7 @@ int main() try
         }
         else
         {
-            //  -------- Split Screen (Horizontal) --------
-            // We will do the bottom half first with camera1,
-            // then the top half with camera2
-
-            // ============= BOTTOM HALF =============
+            // Bottom half
             glViewport(0, 0, w, h / 2);
 
             Mat44f proj1 = make_perspective_projection(
@@ -972,7 +1137,13 @@ int main() try
                 particleTextureId
             );
 
-            // ============= TOP HALF =============
+#ifdef ENABLE_PERFORMANCE_METRICS
+            glQueryCounter(g_timestampViewAEnd[g_currentFrameIndex], GL_TIMESTAMP);
+
+            glQueryCounter(g_timestampViewBStart[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
+
+            // Top half
             glViewport(0, h / 2, w, h / 2);
 
             Mat44f proj2 = make_perspective_projection(
@@ -999,6 +1170,10 @@ int main() try
         // Reset viewport for text stuff
         glViewport(0, 0, w, h);
 
+#ifdef ENABLE_PERFORMANCE_METRICS
+        glQueryCounter(g_timestampViewBEnd[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
+
         // Output altitude of rocket
         std::string altitudeText = std::format("Altitude: {:.4f}", state.rcktCtrl.position.y);
         renderText(state.fsContext, altitudeText.c_str(), 10.0f, 20.0f, 20.0f, glfonsRGBA(255, 255, 255, 255), fontSans); // White text
@@ -1016,14 +1191,64 @@ int main() try
 
         // Swap buffers
         glfwSwapBuffers(window);
+
+#ifdef ENABLE_PERFORMANCE_METRICS
+        glQueryCounter(g_timestampFrameEnd[g_currentFrameIndex], GL_TIMESTAMP);
+
+        auto cpuRenderEnd = Clock::now();
+        g_cpuRenderTimes[g_currentFrameIndex] =
+            std::chrono::duration<double, std::milli>(cpuRenderEnd - cpuRenderStart).count();
+
+        auto cpuFrameEnd = Clock::now();
+        g_cpuFrameTimes[g_currentFrameIndex] =
+            std::chrono::duration<double, std::milli>(cpuFrameEnd - cpuFrameStart).count();
+
+        g_totalFrameCount++;
+
+        // retrieve older frame
+        if (g_totalFrameCount > MAX_FRAMES_IN_FLIGHT)
+        {
+            int retrieveIdx = (g_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+            retrieveQueries(retrieveIdx, state);
+        }
+
+        g_currentFrameIndex = (g_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+
+        // Reset keyPress flags so they only appear "1" in CSV for a single frame
+        state.keyPressC = false;
+        state.keyPressShiftC = false;
+        state.keyPressV = false;
+        state.keyPressF = false;
+#endif
     }
-
-    
-
 
 
     // Cleanup
     state.prog = nullptr;
+
+#ifdef ENABLE_PERFORMANCE_METRICS
+    // Delete queries
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampFrameStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampFrameEnd);
+
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampTerrainStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampTerrainEnd);
+
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampLaunchpadsStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampLaunchpadsEnd);
+
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampSpaceshipStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampSpaceshipEnd);
+
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewAStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewAEnd);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewBStart);
+    glDeleteQueries(MAX_FRAMES_IN_FLIGHT, g_timestampViewBEnd);
+
+    if (g_csvOut.is_open())
+        g_csvOut.close();
+#endif
+
     return 0;
 }
 catch (std::exception const& eErr)
@@ -1060,6 +1285,9 @@ namespace
         glUniform3f(4, 0.05f, 0.05f, 0.05f);
 
         // 1) -------------- Langerso --------------
+#ifdef ENABLE_PERFORMANCE_METRICS
+        glQueryCounter(g_timestampTerrainStart[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
         {
             Mat44f model2world = kIdentity44f;
             Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
@@ -1081,8 +1309,14 @@ namespace
 
             glBindTexture(GL_TEXTURE_2D, 0);
         }
+#ifdef ENABLE_PERFORMANCE_METRICS
+        glQueryCounter(g_timestampTerrainEnd[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
 
         // 2) -------------- Rocket --------------
+#ifdef ENABLE_PERFORMANCE_METRICS
+        glQueryCounter(g_timestampSpaceshipStart[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
         {
             Mat44f model2world = state.rcktCtrl.model2worldRocket;
             Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
@@ -1095,10 +1329,15 @@ namespace
             glBindVertexArray(rocketVao);
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)rocketCount);
         }
+#ifdef ENABLE_PERFORMANCE_METRICS
+        glQueryCounter(g_timestampSpaceshipEnd[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
 
         // 3) -------------- Launchpad #1 --------------
+#ifdef ENABLE_PERFORMANCE_METRICS
+        glQueryCounter(g_timestampLaunchpadsStart[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
         {
-            // For convenience, let's say the loaded mesh is already pre-transformed
             Mat44f model2world = kIdentity44f;
             Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
             Mat44f mvp = projection * view * model2world;
@@ -1113,7 +1352,6 @@ namespace
 
         // 4) -------------- Launchpad #2 --------------
         {
-            // Another instance of the same mesh, but with an offset transform
             Mat44f model2world = make_translation({ 3.f,0.f,-5.f });
             Mat33f normalMatrix = mat44_to_mat33(transpose(invert(model2world)));
             Mat44f mvp = projection * view * model2world;
@@ -1125,6 +1363,10 @@ namespace
             glBindVertexArray(launchpadVao);
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
         }
+ 
+#ifdef ENABLE_PERFORMANCE_METRICS
+    glQueryCounter(g_timestampLaunchpadsEnd[g_currentFrameIndex], GL_TIMESTAMP);
+#endif
 
         // 5) -------------- Particle Exhaust --------------
         {
