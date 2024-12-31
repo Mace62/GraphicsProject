@@ -39,7 +39,7 @@
 extern "C"
 {
     __declspec(dllexport) unsigned long NvOptimusEnablement = 1;
-    __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1;
+    __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1; 
 }
 #endif
 
@@ -66,7 +66,7 @@ namespace
 
     constexpr float rocketAcceleration_ = 0.1f;
 
-    using Clock = std::chrono::high_resolution_clock;
+    using OPClock = std::chrono::high_resolution_clock;
     using Secondsf = std::chrono::duration<float>;
 
     // --------------- Camera Mode ---------------
@@ -243,7 +243,7 @@ namespace
         if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow))) {
             // Press V to toggle split screen:
             if (aKey == GLFW_KEY_V && aAction == GLFW_PRESS) {
-                state->isSplitScreen = !state->isSplitScreen;
+                state->isSplitScreen = !state->isSplitScreen;   
 #ifdef ENABLE_PERFORMANCE_METRICS
                 state->keyPressV = true;
 #endif
@@ -487,7 +487,6 @@ namespace
         for (int i = 0; i < MAX_POINT_LIGHTS; ++i)
         {
             // Transform light positions with rocket matrix
-            Vec4f transformedPos = rocketPosition * Vec4f{ rocketData.pointLightPos[i].x, rocketData.pointLightPos[i].y, rocketData.pointLightPos[i].z, 1.0f };
             Vec3f transformedNorm = normalize(N * rocketData.pointLightNorms[i]);
 
             pointLights[i].position = rocketData.pointLightPos[i];
@@ -598,7 +597,7 @@ namespace
             rocket.time += dt;
 
             // Define the direction vector for the rocket's motion after 5 seconds
-            Vec3f newDirection = normalize(Vec3f(3.0f, 1.0f, -3.5f));
+            Vec3f newDirection = normalize(Vec3f(3.0f, 1.0f, -3.5f)); 
 
             // Initialize the acceleration vector based on the time elapsed
             Vec3f accelerationVector;
@@ -633,9 +632,6 @@ namespace
             if (length(direction) > 0.001f) {
                 direction = normalize(direction);
             }
-
-            // Assume the rocket moves primarily along the y-axis (forward direction)
-            Vec3f rocketForward = Vec3f(0.0f, 1.0f, 0.0f);
 
             // Calculate pitch: angle between the forward direction and the direction vector
             float pitch = atan2(direction.z, sqrt(direction.x * direction.x + direction.y * direction.y));
@@ -919,19 +915,19 @@ int main() try
     }
 
     // -------------- Add buttons --------------
-
+    
     // Create button
     Button launchButton(0.25f, 0.1f, 0.2f, 0.08f, "Launch rocket", state.fsContext, fontSans, buttonShader.programId());
     Button resetButton(0.55f, 0.1f, 0.2f, 0.08f, "Reset rocket", state.fsContext, fontSans, buttonShader.programId());
 
     // Set click handlers
-    launchButton.setOnClick([&state]() {
+    launchButton.setOnClick([&state]() {  
         state.rcktCtrl.isMoving = true;  // Actually set the value
-        });
+    });
 
-    resetButton.setOnClick([&state]() {
+    resetButton.setOnClick([&state]() {  
         state.rcktCtrl.reset();
-        });
+    });
 
     //state.buttons.push_back(Button())
 
@@ -999,7 +995,7 @@ int main() try
 #endif
 
     // -------------- Timing variables --------------
-    auto last = Clock::now();
+    auto last = OPClock::now();
     int lastwSize = 1280;
     int lasthSize = 720;
 
@@ -1022,7 +1018,7 @@ int main() try
         {
             do {
                 // Pause when minimized
-                auto now = Clock::now();
+                auto now = OPClock::now();
                 last = now;
 
                 //state.rcktCtrl.particleTimer = 0.f;
@@ -1035,7 +1031,7 @@ int main() try
         glViewport(0, 0, w, h);
 
         // Compute dt
-        auto now = Clock::now();
+        auto now = OPClock::now();
         float dt = std::chrono::duration_cast<Secondsf>(now - last).count();
         last = now;
         lasthSize = h;
@@ -1044,7 +1040,7 @@ int main() try
         lastYPosWindow = YPosWindow;
 
 #ifdef ENABLE_PERFORMANCE_METRICS
-        auto cpuFrameStart = Clock::now();
+        auto cpuFrameStart = OPClock::now();
         glQueryCounter(g_timestampFrameStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
@@ -1080,7 +1076,7 @@ int main() try
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 #ifdef ENABLE_PERFORMANCE_METRICS
-        auto cpuRenderStart = Clock::now();
+            auto cpuRenderStart = OPClock::now();
 
         // Always do these queries so they're "used" each frame
         glQueryCounter(g_timestampViewAStart[g_currentFrameIndex], GL_TIMESTAMP);
@@ -1179,7 +1175,7 @@ int main() try
         renderText(state.fsContext, altitudeText.c_str(), 10.0f, 20.0f, 20.0f, glfonsRGBA(255, 255, 255, 255), fontSans); // White text
 
 
-
+        
 
         // Update and render buttons
         launchButton.update(window);
@@ -1195,11 +1191,11 @@ int main() try
 #ifdef ENABLE_PERFORMANCE_METRICS
         glQueryCounter(g_timestampFrameEnd[g_currentFrameIndex], GL_TIMESTAMP);
 
-        auto cpuRenderEnd = Clock::now();
+        auto cpuRenderEnd = OPClock::now();
         g_cpuRenderTimes[g_currentFrameIndex] =
             std::chrono::duration<double, std::milli>(cpuRenderEnd - cpuRenderStart).count();
 
-        auto cpuFrameEnd = Clock::now();
+        auto cpuFrameEnd = OPClock::now();
         g_cpuFrameTimes[g_currentFrameIndex] =
             std::chrono::duration<double, std::milli>(cpuFrameEnd - cpuFrameStart).count();
 
@@ -1286,7 +1282,7 @@ namespace
 
         // 1) -------------- Langerso --------------
 #ifdef ENABLE_PERFORMANCE_METRICS
-        //glQueryCounter(g_timestampTerrainStart[g_currentFrameIndex], GL_TIMESTAMP);
+        glQueryCounter(g_timestampTerrainStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
         {
             Mat44f model2world = kIdentity44f;
@@ -1310,12 +1306,12 @@ namespace
             glBindTexture(GL_TEXTURE_2D, 0);
         }
 #ifdef ENABLE_PERFORMANCE_METRICS
-        //glQueryCounter(g_timestampTerrainEnd[g_currentFrameIndex], GL_TIMESTAMP);
+        glQueryCounter(g_timestampTerrainEnd[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
         // 2) -------------- Rocket --------------
 #ifdef ENABLE_PERFORMANCE_METRICS
-        //glQueryCounter(g_timestampSpaceshipStart[g_currentFrameIndex], GL_TIMESTAMP);
+        glQueryCounter(g_timestampSpaceshipStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
         {
             Mat44f model2world = state.rcktCtrl.model2worldRocket;
@@ -1330,12 +1326,12 @@ namespace
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)rocketCount);
         }
 #ifdef ENABLE_PERFORMANCE_METRICS
-        //glQueryCounter(g_timestampSpaceshipEnd[g_currentFrameIndex], GL_TIMESTAMP);
+        glQueryCounter(g_timestampSpaceshipEnd[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
         // 3) -------------- Launchpad #1 --------------
 #ifdef ENABLE_PERFORMANCE_METRICS
-        //glQueryCounter(g_timestampLaunchpadsStart[g_currentFrameIndex], GL_TIMESTAMP);
+        glQueryCounter(g_timestampLaunchpadsStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
         {
             Mat44f model2world = kIdentity44f;
@@ -1363,9 +1359,9 @@ namespace
             glBindVertexArray(launchpadVao);
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
         }
-
+ 
 #ifdef ENABLE_PERFORMANCE_METRICS
-        //glQueryCounter(g_timestampLaunchpadsEnd[g_currentFrameIndex], GL_TIMESTAMP);
+    glQueryCounter(g_timestampLaunchpadsEnd[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
         // 5) -------------- Particle Exhaust --------------
