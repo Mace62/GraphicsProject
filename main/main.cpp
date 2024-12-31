@@ -14,7 +14,6 @@
 #include <string>
 #include <iostream>
 #include <chrono>       
-#include <format>
 
 #include "../support/error.hpp"
 #include "../support/program.hpp"
