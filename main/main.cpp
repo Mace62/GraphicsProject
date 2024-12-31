@@ -32,7 +32,6 @@
 #include "render_text.hpp"
 #include "button.hpp"
 
-#define M_PI 3.14159265358979323846;
 
 #if defined(_WIN32) // alternative: #if defined(_MSC_VER)
 extern "C"
@@ -1170,8 +1169,9 @@ int main() try
 #endif
 
         // Output altitude of rocket
-        std::string altitudeText = std::format("Altitude: {:.4f}", state.rcktCtrl.position.y);
-        renderText(state.fsContext, altitudeText.c_str(), 10.0f, 20.0f, 20.0f, glfonsRGBA(255, 255, 255, 255), fontSans); // White text
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "Altitude: %.4f", state.rcktCtrl.position.y);
+        renderText(state.fsContext, buffer, 10.0f, 20.0f, 20.0f, glfonsRGBA(255, 255, 255, 255), fontSans);
 
 
         
