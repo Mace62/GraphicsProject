@@ -33,7 +33,7 @@
 #include "render_text.hpp"
 #include "button.hpp"
 
-#define M_PI 3.14159265358979323846;
+#define MATH_PI 3.14159265358979323846;
 
 #if defined(_WIN32) // alternative: #if defined(_MSC_VER)
 extern "C"
