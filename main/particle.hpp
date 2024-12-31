@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <glad/glad.h>
+#include <cstddef>
 
 #include "../vmlib/vec3.hpp"
 #include "../vmlib/vec4.hpp"
