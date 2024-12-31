@@ -14,7 +14,7 @@
 #include <string>
 #include <iostream>
 #include <chrono>       
-
+#include <format>
 
 #include "../support/error.hpp"
 #include "../support/program.hpp"
@@ -33,13 +33,13 @@
 #include "render_text.hpp"
 #include "button.hpp"
 
-#define MATH_PI 3.14159265358979323846;
+#define M_PI 3.14159265358979323846;
 
 #if defined(_WIN32) // alternative: #if defined(_MSC_VER)
 extern "C"
 {
     __declspec(dllexport) unsigned long NvOptimusEnablement = 1;
-    __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1; 
+    __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif
 
@@ -243,7 +243,7 @@ namespace
         if (auto* state = static_cast<State_*>(glfwGetWindowUserPointer(aWindow))) {
             // Press V to toggle split screen:
             if (aKey == GLFW_KEY_V && aAction == GLFW_PRESS) {
-                state->isSplitScreen = !state->isSplitScreen;   
+                state->isSplitScreen = !state->isSplitScreen;
 #ifdef ENABLE_PERFORMANCE_METRICS
                 state->keyPressV = true;
 #endif
@@ -598,7 +598,7 @@ namespace
             rocket.time += dt;
 
             // Define the direction vector for the rocket's motion after 5 seconds
-            Vec3f newDirection = normalize(Vec3f(3.0f, 1.0f, -3.5f)); 
+            Vec3f newDirection = normalize(Vec3f(3.0f, 1.0f, -3.5f));
 
             // Initialize the acceleration vector based on the time elapsed
             Vec3f accelerationVector;
@@ -919,19 +919,19 @@ int main() try
     }
 
     // -------------- Add buttons --------------
-    
+
     // Create button
     Button launchButton(0.25f, 0.1f, 0.2f, 0.08f, "Launch rocket", state.fsContext, fontSans, buttonShader.programId());
     Button resetButton(0.55f, 0.1f, 0.2f, 0.08f, "Reset rocket", state.fsContext, fontSans, buttonShader.programId());
 
     // Set click handlers
-    launchButton.setOnClick([&state]() {  
+    launchButton.setOnClick([&state]() {
         state.rcktCtrl.isMoving = true;  // Actually set the value
-    });
+        });
 
-    resetButton.setOnClick([&state]() {  
+    resetButton.setOnClick([&state]() {
         state.rcktCtrl.reset();
-    });
+        });
 
     //state.buttons.push_back(Button())
 
@@ -1080,7 +1080,7 @@ int main() try
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 #ifdef ENABLE_PERFORMANCE_METRICS
-            auto cpuRenderStart = Clock::now();
+        auto cpuRenderStart = Clock::now();
 
         // Always do these queries so they're "used" each frame
         glQueryCounter(g_timestampViewAStart[g_currentFrameIndex], GL_TIMESTAMP);
@@ -1179,7 +1179,7 @@ int main() try
         renderText(state.fsContext, altitudeText.c_str(), 10.0f, 20.0f, 20.0f, glfonsRGBA(255, 255, 255, 255), fontSans); // White text
 
 
-        
+
 
         // Update and render buttons
         launchButton.update(window);
@@ -1286,7 +1286,7 @@ namespace
 
         // 1) -------------- Langerso --------------
 #ifdef ENABLE_PERFORMANCE_METRICS
-        glQueryCounter(g_timestampTerrainStart[g_currentFrameIndex], GL_TIMESTAMP);
+        //glQueryCounter(g_timestampTerrainStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
         {
             Mat44f model2world = kIdentity44f;
@@ -1310,12 +1310,12 @@ namespace
             glBindTexture(GL_TEXTURE_2D, 0);
         }
 #ifdef ENABLE_PERFORMANCE_METRICS
-        glQueryCounter(g_timestampTerrainEnd[g_currentFrameIndex], GL_TIMESTAMP);
+        //glQueryCounter(g_timestampTerrainEnd[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
         // 2) -------------- Rocket --------------
 #ifdef ENABLE_PERFORMANCE_METRICS
-        glQueryCounter(g_timestampSpaceshipStart[g_currentFrameIndex], GL_TIMESTAMP);
+        //glQueryCounter(g_timestampSpaceshipStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
         {
             Mat44f model2world = state.rcktCtrl.model2worldRocket;
@@ -1330,12 +1330,12 @@ namespace
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)rocketCount);
         }
 #ifdef ENABLE_PERFORMANCE_METRICS
-        glQueryCounter(g_timestampSpaceshipEnd[g_currentFrameIndex], GL_TIMESTAMP);
+        //glQueryCounter(g_timestampSpaceshipEnd[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
         // 3) -------------- Launchpad #1 --------------
 #ifdef ENABLE_PERFORMANCE_METRICS
-        glQueryCounter(g_timestampLaunchpadsStart[g_currentFrameIndex], GL_TIMESTAMP);
+        //glQueryCounter(g_timestampLaunchpadsStart[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
         {
             Mat44f model2world = kIdentity44f;
@@ -1363,9 +1363,9 @@ namespace
             glBindVertexArray(launchpadVao);
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)launchpadCount);
         }
- 
+
 #ifdef ENABLE_PERFORMANCE_METRICS
-    glQueryCounter(g_timestampLaunchpadsEnd[g_currentFrameIndex], GL_TIMESTAMP);
+        //glQueryCounter(g_timestampLaunchpadsEnd[g_currentFrameIndex], GL_TIMESTAMP);
 #endif
 
         // 5) -------------- Particle Exhaust --------------
